@@ -14,8 +14,8 @@ const bounding_boxes = {
   "B" : {
     x : 250,
     y : 200,
-    width: 100,
-    height: 100,
+    width: 200,
+    height: 200,
   }
 }
 
