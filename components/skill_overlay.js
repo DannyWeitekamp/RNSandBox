@@ -39,6 +39,7 @@ class SkillOverlay extends Component{
     let sk_apps =this.props.skill_applications 
     this.state = {
      focus_sel : this.props.skill_applications[0].selection,
+     focus_index : 0,
      ...this.group_skill_apps(this.props.skill_applications,{})
      // z_order: [...Array((sk_apps || []).length).keys()]
     }
@@ -94,10 +95,11 @@ class SkillOverlay extends Component{
   }
 
   render(){
-    let skill_applications = this.props.skill_applications
-    let bounding_boxes = this.props.bounding_boxes
+    // let skill_applications = this.props.skill_applications
+    let {bounding_boxes, where_colors} = this.props
     let skill_boxes = []
     let possibilities = []
+    let highlights = []
     let connectors = []
     console.log(this.state)
 
@@ -105,15 +107,32 @@ class SkillOverlay extends Component{
     let j=0
     for (let sel of this.state.selection_order){
       let sg = this.state.selection_groups[sel]
-      let skill_app = sg[0]
-      let sel = skill_app.selection
       let bounds = bounding_boxes[sel]
+
       let hasFocus = false
-      let correct = false
-      let incorrect = false
+      let skill_app;
       if(sel === this.state.focus_sel){
-          hasFocus = true
+        skill_app = sg[this.state.focus_index]
+        console.log("SELECTED", skill_app)
+        if(skill_app.foci_of_attention){
+
+          for (let k=0; k < skill_app.foci_of_attention.length; k++){
+            let foa = skill_app.foci_of_attention[k]
+            console.log("FOCI", foa)
+            highlights.push(
+              <SkillAppProposal bounds={bounding_boxes[foa]}
+                                color = {where_colors[k+1]}
+                                hasFocus={true}/>
+            )
+          }
+        }
+        hasFocus = true
+      }else{
+        skill_app = sg.find(sa => sa.reward > 0) || sg[0];  
       }
+      let correct = skill_app.reward > 0
+      let incorrect = skill_app.reward < 0
+
       possibilities.push(
         <SkillAppProposal
           key={sel}
@@ -125,15 +144,15 @@ class SkillOverlay extends Component{
         />        
       )
 
-      let focusCallback = ()=>{
+      let focusCallback = (index)=>{
+
        console.log("Set FOCUS", sel)
        this.state.selection_order.splice(
           this.state.selection_order.indexOf(sel),1)
        let new_sel_order = [...this.state.selection_order,sel]
-       this.setState({"focus_sel" : sel, selection_order: new_sel_order})
+       this.setState({"focus_sel" : sel,"focus_index":index, selection_order: new_sel_order})
        console.log("selection_order",new_sel_order)
       }
-
       
       skill_boxes.push(
         <SkillAppBox 
@@ -144,40 +163,13 @@ class SkillOverlay extends Component{
           toggleCallbacks={this.state.toggleCallback_groups[sel]}
         />
       )
-      
-
-
       j++
     }
-
-
-
-    // for (let j=0; j < skill_applications.length; j++){
-    //   let i = this.state.z_order[j]
-    //   let skill_app = skill_applications[i] 
-    //   let bounds = bounding_boxes[skill_app.selection]
-    //   console.log(i, skill_applications[i])
-    //   let hasFocus= (this.state.focus_index==i)
-
-      
-      
-      
-    //   console.log("hasFocus",hasFocus,i)
-    //   skill_boxes.push(
-    //     <SkillAppBox 
-    //       zIndex={j}
-    //       focusCallback = {focusCallback}
-    //       initial_pos ={{x: bounds.x+bounds.width+10, y: bounds.y-70}}//{{x: 0, y: 0}}
-    //       key={i.toString()} skill_applications={[skill_app]} hasFocus={hasFocus}
-    //     />
-    //   )
-    // }
     return (
       <View style={{height:"100%", width:"100%" }}>
+        {highlights}
         {possibilities}
         {skill_boxes}
-        
-          
         
       </View>)
   }
@@ -195,5 +187,12 @@ const styles = StyleSheet.create({
     // alignItems: "center"
   },
 })
+
+SkillOverlay.defaultProps = {
+  where_colors: [  "darkorchid",  "#ff884d",  "#52d0e0",
+                   "#feb201",  "#e44161", "#ed3eea",
+                   "#2f85ee",  "#562ac6", "#cc24cc"],
+}
+
 
 export default SkillOverlay;

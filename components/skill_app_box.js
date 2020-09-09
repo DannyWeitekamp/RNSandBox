@@ -248,12 +248,14 @@ class CorrectnessToggler extends Component {
   bottomHoverStart(){this.setState({bottom_hover:true,hover_fresh:true})}
   bottomHoverEnd(){this.setState({bottom_hover:false})}
 
-  topPress(){
+  topPress(){this.handlePress(true)}
+  bottomPress(){this.handlePress(false)}
+  handlePress(is_top){
     let [correct,incorrect] = [this.getCorrect(),this.getIncorrect()]
     let undef = !correct && !incorrect
     let next_state; 
     if(undef){
-      next_state = {correct:true,incorrect:false,hover_fresh:false}
+      next_state = {correct:is_top,incorrect:!is_top,hover_fresh:false}
     }else{
       next_state = {correct:!correct,incorrect:!incorrect,hover_fresh:false}
     }
@@ -263,23 +265,7 @@ class CorrectnessToggler extends Component {
     }else{
       this.setState(next_state)
     }
-  }
-  bottomPress(){
-    // console.log("bottomPress")
-    let [correct,incorrect] = [this.getCorrect(),this.getIncorrect()]
-    let undef = !correct && !incorrect
-    let next_state; 
-    if(undef){
-      next_state = {correct:false,incorrect:true,hover_fresh:false}
-    }else{
-      next_state = {correct:!correct,incorrect:!incorrect,hover_fresh:false}
-    }
-    if(this.props.toggleCallback){
-      this.props.toggleCallback(next_state)
-      this.setState({hover_fresh:false})
-    }else{
-      this.setState(next_state)
-    }
+    this.props.focusCallback(this.state.focus_index)
   }
   getCorrect(){
     if('correct' in this.state){
@@ -428,7 +414,7 @@ class SkillAppRow extends RisingComponent {
 
        onPanResponderGrant: (evt, gestureState) => {
         // console.log("GRABBED-inner",evt)
-        this.props.focusCallback(evt)
+        this.props.focusCallback()
         this._update_scale_elevation_pos()
        },
        
@@ -462,7 +448,8 @@ class SkillAppRow extends RisingComponent {
     return (
       <View {...handlers}>
         <CorrectnessToggler correct={correct} incorrect={incorrect}
-                            toggleCallback={this.props.toggleCallback}/>
+                            toggleCallback={this.props.toggleCallback}
+                            focusCallback={this.props.focusCallback}/>
         <Animated.View style = {[styles.inner, border_style,
             {transform : [{scale:this.state.scale_anim}]},
             gen_shadow(this.state.elevation)
@@ -493,7 +480,7 @@ class SkillAppBox extends RisingComponent{
        onPanResponderGrant: (evt, gestureState) => {
         this.is_grabbed = true
         this._update_scale_elevation_pos()
-        this.props.focusCallback(evt)
+        this.props.focusCallback(this.state.focus_index)
        },
        onPanResponderMove: (event, gesture) => {
           
@@ -571,7 +558,7 @@ class SkillAppBox extends RisingComponent{
       // let i = j
       const focusCallback = (evt)=>{
         // console.log("BLOOP RERENDER", this.state.focus_index,j)
-        this.props.focusCallback(evt) //Call parent focus callback
+        this.props.focusCallback(j) //Call parent focus callback
         this.setState({focus_index: j})
       }
       

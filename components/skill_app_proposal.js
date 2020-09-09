@@ -58,47 +58,57 @@ class SkillAppProposal extends Component {
     }
   }
   render(){
-    let skill_app = this.props.skill_app || {}
-    let text = (skill_app.input || "")//.value || ""
-    let bounds = this.props.bounds;
-    let hasFocus = this.props.hasFocus;
-    let correct = this.props.correct;
-    let incorrect = this.props.incorrect;
-    let fontSize = (Math.max(bounds.width,100)/Math.min(text.length||1,6))*.9
-    let shadow_props = gen_shadow(this.state.elevation);
-    let color = //(hasFocus && this.props.focus_color) ||
-                (correct && this.props.correct_color) ||
-                (incorrect && this.props.incorrect_color) ||
-                (this.props.default_color)
+    let {skill_app, bounds, hasFocus, correct, incorrect, color} = this.props
+
+    // let skill_app = this.props.skill_app || null
+    
+    // let bounds = this.props.bounds;
+    // let hasFocus = this.props.hasFocus;
+    // let correct = this.props.correct;
+    // let incorrect = this.props.incorrect;
+
 
     
-    let inner_text_style = {
-      alignSelf: "center",
-      color : color,//(hasFocus && "rgba(143,40,180, .7)") || "gray",
-      fontSize : fontSize,
-    }
+    let shadow_props = gen_shadow(this.state.elevation);
 
-    let innerContent = null
-    if(skill_app.action.toLowerCase().includes('press')){
-      innerContent = <View style ={{position:'absolute',
-                                    width:fontSize,
-                                    height:fontSize,
-                                  //  alignItems:'left'
-                                  }}>
-                      <Image 
-                      style ={{ flex:1,
-                                alignSelf : (Platform.OS == 'android' && 'center'),
-                                tintColor:color,
-                                opacity : .7,
-                                transform:[
-                                  {scale: .65}
-                                ],
-                            }}
-                      source={images.tap} />
-                    </View>
-    }else{
-      innerContent = <Text style = {inner_text_style}>
-            {text}</Text>
+
+    color = color ||
+            (correct && this.props.correct_color) ||
+            (incorrect && this.props.incorrect_color) ||
+            (this.props.default_color)
+
+    let text = ((skill_app && skill_app.input) || "")//.value || ""
+    let fontSize = (Math.max(bounds.width,100)/Math.min(text.length||1,6))*.9
+    
+
+    let innerContent;
+    if(skill_app){
+      if(skill_app.action.toLowerCase().includes('press')){
+        innerContent = <View style ={{position:'absolute',
+                                      width:fontSize,
+                                      height:fontSize,
+                                    //  alignItems:'left'
+                                    }}>
+                        <Image 
+                        style ={{ flex:1,
+                                  alignSelf : (Platform.OS == 'android' && 'center'),
+                                  tintColor:color,
+                                  opacity : .7,
+                                  transform:[
+                                    {scale: .65}
+                                  ],
+                              }}
+                        source={images.tap} />
+                      </View>
+      }else{
+        innerContent = <Text style = {{
+                          alignSelf: "center",
+                          color : color,//(hasFocus && "rgba(143,40,180, .7)") || "gray",
+                          fontSize : fontSize,
+                      }}>
+                        {text}
+                      </Text>
+      }
     }
 
 
