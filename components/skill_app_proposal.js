@@ -1,7 +1,11 @@
 import React, { Component, createRef } from 'react'
-import { TouchableHighlight, TouchableNativeFeedback,ScrollView,View, Text, StyleSheet,
+import { TouchableHighlight, TouchableNativeFeedback,ScrollView,View, Text, Image,StyleSheet,
          Animated, PanResponder,useRef,Platform } from "react-native";
 import autobind from "class-autobind";
+
+const images = {
+  tap: require('./img/gesture-tap.png'),
+};
 
 
 import {simple_animate, gen_shadow} from "./vis_utils.js"
@@ -58,42 +62,90 @@ class SkillAppProposal extends Component {
     let text = (skill_app.input || "")//.value || ""
     let bounds = this.props.bounds;
     let hasFocus = this.props.hasFocus;
-    let fontSize = (Math.max(bounds.width,100)/Math.min(text.length,6))*.9
+    let correct = this.props.correct;
+    let incorrect = this.props.incorrect;
+    let fontSize = (Math.max(bounds.width,100)/Math.min(text.length||1,6))*.9
     let shadow_props = gen_shadow(this.state.elevation);
+    let color = //(hasFocus && this.props.focus_color) ||
+                (correct && this.props.correct_color) ||
+                (incorrect && this.props.incorrect_color) ||
+                (this.props.default_color)
+
+    
+    let inner_text_style = {
+      alignSelf: "center",
+      color : color,//(hasFocus && "rgba(143,40,180, .7)") || "gray",
+      fontSize : fontSize,
+    }
+
+    let innerContent = null
+    if(skill_app.action.toLowerCase().includes('press')){
+      innerContent = <View style ={{position:'absolute',
+                                    width:fontSize,
+                                    height:fontSize,
+                                  //  alignItems:'left'
+                                  }}>
+                      <Image 
+                      style ={{ flex:1,
+                                alignSelf : (Platform.OS == 'android' && 'center'),
+                                tintColor:color,
+                                opacity : .7,
+                                transform:[
+                                  {scale: .65}
+                                ],
+                            }}
+                      source={images.tap} />
+                    </View>
+    }else{
+      innerContent = <Text style = {inner_text_style}>
+            {text}</Text>
+    }
+
 
     return <Animated.View  style= {[{position : "absolute",
+                       
                        borderWidth: (hasFocus && 8) || 4,
                        borderRadius: 10,
-                       borderColor: (hasFocus && "purple") || "gray",
+                       borderColor: color,//(hasFocus && "rgba(143,40,180, .7)") || "gray",
                        width:bounds.width,
                        height:bounds.height,
                        justifyContent: "center",
+                       alignItems: "center",
+                       // opacity : .75,
                       transform: [
                         {translateX : bounds.x},
                         {translateY : bounds.y},
                         ]
                     },shadow_props]
         }>
-          <Text
-            style = {{
-              alignSelf: "center",
-              color : (hasFocus && "purple") || "gray",
-              fontSize : fontSize,
-              // fontWeight: (hasFocus && "bold") || "",
-            }}
-                >
-            {text}
-          </Text>
+          {innerContent}
+          
         </Animated.View>
   }
 }
 
+// const styles = StyleSheet.create({
+//   "inner_text": {
+
+//   }
+// })
+
 SkillAppProposal.defaultProps = {
+  hasFocus : false,
+  correct : false,
+  incorrect : false,
+
   focused_scale : 1.025,
   default_scale : 1,
-  hasFocus : false,
+  
   focused_elevation : 14,
-  default_elevation : 2
+  default_elevation : 2,
+
+  correct_color : 'rgba(50,205,50,.7)',//'limegreen',
+  incorrect_color : 'rgba(255,0,0,.7)',//'red',
+  default_color : 'rgba(128,128,128,.7)',//'gray',
+  focus_color : 'rgba(153,50,204,.7)',//'darkorchid',
+
 }
 
 export default SkillAppProposal
