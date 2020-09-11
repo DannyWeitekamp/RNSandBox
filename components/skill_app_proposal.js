@@ -5,6 +5,7 @@ import autobind from "class-autobind";
 
 const images = {
   tap: require('./img/gesture-tap.png'),
+  left_arrow: require('./img/arrow-left-bold.png'),
 };
 
 
@@ -42,7 +43,7 @@ class SkillAppProposal extends Component {
     ).start();
     // simple_animate(this,'elevation',next_size,config)
     if(Platform.OS == 'web'){
-      simple_animate(this,'elevation',next_elevation,config)
+      simple_animate(this,'elevation',next_elevation,{...config,speed:40})
     }else{
       Animated.spring(
       this.state.elevation, // Auto-multiplexed
@@ -51,7 +52,25 @@ class SkillAppProposal extends Component {
     }
 
   }
+  shouldComponentUpdate(nextProps, nextState){
+    let props = this.props
+    let skill_app = props.skill_app
+    // console.log('check proposal',((skill_app && skill_app.input) || ""))
+    if(nextProps.hasFocus != props.hasFocus ||
+       nextProps.correct != props.correct ||
+       nextProps.incorrect != props.incorrect ||
+       nextProps.color != props.color ||
+       (nextProps.skill_app && 
+       (nextProps.skill_app.input != props.skill_app.input ||
+       nextProps.skill_app.action != props.skill_app.action))
+      ){
+      return true
+    }
+    return false
+  }
+
   componentDidUpdate(prevProps) {
+    console.log(prevProps)
     if (prevProps.hasFocus !== this.props.hasFocus) {
       this._update_scale_elevation()
       // this.updateAndNotify();
@@ -59,15 +78,6 @@ class SkillAppProposal extends Component {
   }
   render(){
     let {skill_app, bounds, hasFocus, correct, incorrect, color} = this.props
-
-    // let skill_app = this.props.skill_app || null
-    
-    // let bounds = this.props.bounds;
-    // let hasFocus = this.props.hasFocus;
-    // let correct = this.props.correct;
-    // let incorrect = this.props.incorrect;
-
-
     
     let shadow_props = gen_shadow(this.state.elevation);
 
@@ -78,7 +88,8 @@ class SkillAppProposal extends Component {
             (this.props.default_color)
 
     let text = ((skill_app && skill_app.input) || "")//.value || ""
-    let fontSize = (Math.max(bounds.width,100)/Math.min(text.length||1,6))*.9
+    let fontSize = (Math.max(bounds.width,100)/((Math.min(text.length||1,8)-1)*.5 + 1))
+    console.log('fontSize',fontSize)
     
 
     let innerContent;
@@ -91,7 +102,7 @@ class SkillAppProposal extends Component {
                                     }}>
                         <Image 
                         style ={{ flex:1,
-                                  alignSelf : (Platform.OS == 'android' && 'center'),
+                                  alignSelf : (Platform.OS == 'android' && 'center') || 'auto',
                                   tintColor:color,
                                   opacity : .7,
                                   transform:[
@@ -112,21 +123,25 @@ class SkillAppProposal extends Component {
     }
 
 
-    return <Animated.View  style= {[{position : "absolute",
+    return <Animated.View  style= {[{
+                      position : "absolute",
                        
-                       borderWidth: (hasFocus && 8) || 4,
-                       borderRadius: 10,
-                       borderColor: color,//(hasFocus && "rgba(143,40,180, .7)") || "gray",
-                       width:bounds.width,
-                       height:bounds.height,
-                       justifyContent: "center",
-                       alignItems: "center",
-                       // opacity : .75,
+                      borderWidth: (hasFocus && 8) || 4,
+                      borderRadius: 10,
+                      borderColor: color,//(hasFocus && "rgba(143,40,180, .7)") || "gray",
+                      width:bounds.width,
+                      height:bounds.height,
+                      justifyContent: "center",
+                      alignItems: "center",
+
+                      // opacity : .8,
                       transform: [
                         {translateX : bounds.x},
                         {translateY : bounds.y},
                         ]
-                    },shadow_props]
+                    }
+                    ,shadow_props
+                  ]
         }>
           {innerContent}
           

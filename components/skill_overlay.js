@@ -40,6 +40,9 @@ class SkillOverlay extends Component{
     this.state = {
      focus_sel : this.props.skill_applications[0].selection,
      focus_index : 0,
+     staged_sel : this.props.skill_applications[0].selection,
+     // staged_index : 0,
+     staged_index : null,
      ...this.group_skill_apps(this.props.skill_applications,{})
      // z_order: [...Array((sk_apps || []).length).keys()]
     }
@@ -50,9 +53,11 @@ class SkillOverlay extends Component{
     let selection_groups = {}
     let toggleCallback_groups = {}
     let selection_order = []
+    let first_sel;
     for (let j=0; j < next_sk_apps.length; j++){
       let skill_app = next_sk_apps[j] 
       let sel = skill_app.selection
+      if(!first_sel){first_sel = sel}
       
       let sel_g = []
       let cb_g = []
@@ -80,7 +85,9 @@ class SkillOverlay extends Component{
       toggleCallback_groups[sel] = cb_g
       
     }
-    return {selection_order: selection_order,
+    return {staged_sel : first_sel,
+            staged_index : 0,
+            selection_order: selection_order,
             selection_groups: selection_groups,
             toggleCallback_groups: toggleCallback_groups}
   }
@@ -95,19 +102,31 @@ class SkillOverlay extends Component{
   }
 
   render(){
+    // console.time('overlay_rerender')
+
+
+
+    
     // let skill_applications = this.props.skill_applications
     let {bounding_boxes, where_colors} = this.props
     let skill_boxes = []
     let possibilities = []
     let highlights = []
     let connectors = []
-    console.log(this.state)
+    console.log('\n\nrender overlay\n\n')
+
+
 
     
     let j=0
     for (let sel of this.state.selection_order){
       let sg = this.state.selection_groups[sel]
       let bounds = bounding_boxes[sel]
+
+      let staged_index
+      if(this.state.staged_sel==sel && this.state.staged_index != null){
+        staged_index = this.state.staged_index
+      }
 
       let hasFocus = false
       let skill_app;
@@ -122,11 +141,14 @@ class SkillOverlay extends Component{
             highlights.push(
               <SkillAppProposal bounds={bounding_boxes[foa]}
                                 color = {where_colors[k+1]}
-                                hasFocus={true}/>
+                                hasFocus={true}
+                                key={'foa'+k.toString()}/>
             )
           }
         }
         hasFocus = true
+      }else if(staged_index){
+        skill_app = sg[staged_index]
       }else{
         skill_app = sg.find(sa => sa.reward > 0) || sg[0];  
       }
@@ -137,6 +159,7 @@ class SkillOverlay extends Component{
         <SkillAppProposal
           key={sel}
           bounds={bounds}
+          //staged={staged_index != null}
           skill_app={skill_app}
           hasFocus={hasFocus}
           correct={correct}
@@ -153,25 +176,39 @@ class SkillOverlay extends Component{
        this.setState({"focus_sel" : sel,"focus_index":index, selection_order: new_sel_order})
        console.log("selection_order",new_sel_order)
       }
+
+      let stageCallback = (index)=>{
+        console.log("STAGE", sel,index)
+        this.setState({"staged_sel" : sel,"staged_index":index})
+      }
       
       skill_boxes.push(
-        <SkillAppBox 
+        <SkillAppBox
           zIndex={j}
           focusCallback = {focusCallback}
           initial_pos ={{x: bounds.x+bounds.width+10, y: bounds.y-70}}//{{x: 0, y: 0}}
-          key={sel} skill_applications={sg} hasFocus={hasFocus}
+          staged_index ={staged_index}
+          focus_index ={this.state.focus_index}
+          key={sel}
+          skill_applications={sg}
+          hasFocus={hasFocus}
           toggleCallbacks={this.state.toggleCallback_groups[sel]}
+          stageCallback={stageCallback}
         />
       )
       j++
     }
-    return (
+
+
+    const out = (
       <View style={{height:"100%", width:"100%" }}>
         {highlights}
         {possibilities}
         {skill_boxes}
         
       </View>)
+    // console.timeEnd('overlay_rerender')
+    return out
   }
 }
 

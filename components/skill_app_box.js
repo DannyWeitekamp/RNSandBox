@@ -2,9 +2,12 @@ import React, { Component, createRef } from 'react'
 import PropTypes from 'prop-types'
 import { TouchableHighlight, 
         TouchableWithoutFeedback,ScrollView,View, Text, StyleSheet,
-         Animated, PanResponder,useRef,Platform } from "react-native";
+         Animated, PanResponder,useRef,Platform, Image } from "react-native";
 import { TouchableOpacity} from 'react-native-gesture-handler'
 
+const images = {
+  left_arrow: require('./img/arrow-left-bold.png'),
+};
 
 // import * as Animatable from 'react-native-animatable';
 import autobind from "class-autobind";
@@ -51,6 +54,7 @@ class RisingComponent extends Component {
     let next_pos = null
     if(this.props.default_pos != null){
       next_pos = (hasFocus && this.props.focused_pos) ||
+                 (is_hover && this.props.hover_pos) ||
                   this.props.default_pos
     }
     // console.log(next_scale,next_elevation,next_pos)
@@ -69,7 +73,7 @@ class RisingComponent extends Component {
     )
     // simple_animate(this,'elevation',next_size,config)
     if(Platform.OS == 'web'){ //For some reason can't animate shadows on web
-      simple_animate(this,'elevation',next_elevation,config)
+      simple_animate(this,'elevation',next_elevation,{...config,speed: 80})
     }else{
       anims.push(
         Animated.spring(
@@ -112,7 +116,6 @@ class AnimatedButton extends Component {
     this.scale = new Animated.Value(preinitial.scale)
     this.is_pressed = false
     this.is_hover = false
-    // this.state = {anim:anim};
   }
   componentDidMount(){
     this._animate_to(this.props.initial)
@@ -123,23 +126,24 @@ class AnimatedButton extends Component {
       this._animate_to( ((this.is_pressed || this.is_hover) && this.props.hover) ||
                           this.props.initial
       )
-      // this.updateAndNotify();
     }
   }
 
   _animate_to(next,config){
     next = {...this.props.initial, ...next}
-    // console.log("next",next)
     Animated.parallel([
       Animated.spring(
-      this.pos, // Auto-multiplexed
-      { toValue: { x: next.x, y: next.y },...config,...{useNativeDriver : true} }
+        this.pos, 
+        { toValue: { x: next.x, y: next.y }
+          ,...config,...{useNativeDriver : true} 
+        }
       ),
       Animated.spring(
-      this.scale, // Auto-multiplexed
-      { toValue: next.scale,...config,...{useNativeDriver : true}}
+        this.scale,
+        { toValue: next.scale,
+          ...config,...{useNativeDriver : true}
+        }
       )
-
     ]).start();
     
   }
@@ -173,11 +177,6 @@ class AnimatedButton extends Component {
         }
       >
         <TouchableOpacity 
-          
-          //hitSlop={{left :20,top:20,right:20,bottom:20}}
-          // style = {{elevation: 40}}
-          //onPress={()=>this._animate_to(this.props.initial)}
-
           onPressIn={()=>{
             this.is_pressed = true
             this._animate_to(this.props.hover,
@@ -199,15 +198,84 @@ class AnimatedButton extends Component {
       </Animated.View>
     )
   }
-  // style={[styles.feedback_button,
-  //                       staged && styles.staged_selected]}
+}
+
+class StageButton extends RisingComponent {
+  constructor(props){
+    super(props);
+    autobind(this)
+    console.log("______", props)
+    this._update_scale_elevation_pos()
+    this.state={...(this.state ||{})}
+    
+  }
+  press(){
+    this.props.stageCallback()
+  }
+  hoverStart(){
+    this.is_hover = true
+    this._update_scale_elevation_pos()
+  }
+  hoverEnd(){
+    this.is_hover = false
+    this._update_scale_elevation_pos()
+  }
+  render(){
+    let {hasFocus} = this.props
+    let text_color = ( (this.props.hasFocus) && 'black') ||
+                      'rgba(0,0,0,.4)'
+    return(
+      <View>
+        <View style = {[this.props.touch_area,
+          { //backgroundColor:'red',
+            top:40,
+            width:20,
+            height:40,
+            overflow:'hidden'}]}>
+          <Animated.View style={[styles.stage_button,
+              { top:10,
+                left:8,},
+              (hasFocus && {backgroundColor: 'dodgerblue'}),
+              {transform : [
+                {translateX: this.state.pos_anim.x},
+                {translateY: this.state.pos_anim.y},
+                {scale: this.state.scale_anim},
+                // {scale: (this.props.force_show_other && 1.6)||1.0},
+              ]},
+              gen_shadow(this.state.elevation)
+          ]}>
+          <Image 
+            style ={[{ flex:1,
+                      left:-1,
+                      alignSelf : (Platform.OS == 'android' && 'center') || 'auto',
+                      resizeMode:'contain',
+                      transform:[
+                        {scale: 1.0}
+                      ]},
+                      (!hasFocus && {tintColor: "gray"}),
+                    ]}
+            source={images.left_arrow} 
+          />
+            
+        </Animated.View>
+      </View>
+      <TouchableWithoutFeedback 
+        onPress={this.press}
+        onMouseEnter={this.hoverStart}
+        onMouseLeave={this.hoverEnd}>
+      <View 
+        style = {this.props.touch_area}/>
+      </TouchableWithoutFeedback>
+    </View>
+    )
+  }
 }
 
 class CorrectnessTogglerKnob extends RisingComponent {
   constructor(props){
     super(props);
     autobind(this)
-    console.log("______", props)
+    // console.log("______", props)
     this._update_scale_elevation_pos()
     this.state={...(this.state ||{}),
         ...{top_hover:false, bottom_hover:false}
@@ -233,7 +301,6 @@ class CorrectnessTogglerKnob extends RisingComponent {
       </Animated.View>
     )
   }
-
 }
 
 class CorrectnessToggler extends Component {
@@ -291,12 +358,10 @@ class CorrectnessToggler extends Component {
                          (is_hover && this.state.hover_fresh && incorrect)
     let disp_bottom_hover =(this.state.bottom_hover && undef) ||
                            (is_hover && this.state.hover_fresh && correct)
-    // let pos = (correct && this.props.correct_pos) ||focusCallback
-    //           (incorrect && this.props.incorrect_pos) ||
-    //           this.props.default_pos
-    let bg_color = (correct && 'rgb(100,200,100)') || 
-                   (incorrect && 'rgb(200,100,100)') ||
-                   'rgb(180,180,180)'
+
+    let bg_color = (correct && colors.c_knob_back) || 
+                   (incorrect && colors.i_knob_back) ||
+                   colors.u_knob_back
     return (
       
       <View
@@ -305,17 +370,9 @@ class CorrectnessToggler extends Component {
           position:'absolute'
       }}>
         <View
-          style = {{
-            height:36,
-            width:12,
-            left: 3,
-            top: 6,
-            borderColor:'rgba(120,120,120,.4)',
-            borderWidth: 1,
-            borderRadius: 20,
-            backgroundColor: bg_color,//'lightgray',
-            ...gen_shadow(5)
-        }}>
+          style = {[styles.toggler,
+            {backgroundColor: bg_color},//'lightgray',
+        ]}>
           <View styles={{display:'flex','flexDirection':'row',alignItems:'center'}}>
             <CorrectnessTogglerKnob
               hasFocus={correct}
@@ -327,7 +384,7 @@ class CorrectnessToggler extends Component {
                      {zIndex: correct*10}
                 ]}
               
-              default_pos = {{x: -2, y: -4}}
+              default_pos = {{x: -2, y: -2}}
               focused_pos = {{x: -2, y: 2}}
               inner_text={((correct || disp_top_hover || undef)
                            && String.fromCharCode(10004))||" "}
@@ -341,7 +398,7 @@ class CorrectnessToggler extends Component {
                       correct && {backgroundColor:bg_color},
                       {zIndex: incorrect*9}
                 ]}
-              default_pos = {{x: -2, y: 24}}
+              default_pos = {{x: -2, y: 26}}
               focused_pos = {{x: -2, y: 18}}
               inner_text={((incorrect || disp_bottom_hover || undef)
                            && String.fromCharCode(10006))||" "}
@@ -353,38 +410,16 @@ class CorrectnessToggler extends Component {
           onMouseEnter={this.topHoverStart}
           onMouseLeave={this.topHoverEnd}>
         <View 
-          style = {{ 
-              width:30,
-              height:29,
-
-              position:'absolute',
-              alignItems:"center",
-              // backgroundColor : 'red',
-              // padding
-              top: -4,
-              left: -8,
-        }}/>
+          style = {this.props.top_touch_area}/>
         </TouchableWithoutFeedback>
         <TouchableWithoutFeedback
           onPress={this.bottomPress}
           onMouseEnter={this.bottomHoverStart}
           onMouseLeave={this.bottomHoverEnd}>
         <View 
-          
-          style = {{ 
-              width:30,
-              height:28,
-
-              position:'absolute',
-              alignItems:"center",
-              // backgroundColor : 'blue',
-              // padding
-              top: 24,
-              left: -8,
-        }}/>
+          style = {this.props.bottom_touch_area}/>
         </TouchableWithoutFeedback>
       </View>
-      
     )
   }
 }
@@ -398,13 +433,10 @@ class SkillAppRow extends RisingComponent {
 
     this.hover_handler = Platform.OS == 'web' && ({
       onMouseEnter:()=>{
-        // console.log("HOVER")
-        // this.setState({is_hover: true})
         this.is_hover = true
         this._update_scale_elevation_pos()
       },
       onMouseLeave:()=>{
-        // this.setState({is_hover: false})
         this.is_hover = false
         this._update_scale_elevation_pos()
       }
@@ -432,17 +464,16 @@ class SkillAppRow extends RisingComponent {
   }
 
   render(){
-    let correct = this.props.correct
-    let incorrect = this.props.incorrect
-    let hasFocus = this.props.hasFocus
-    let bounds_color =  (correct && 'rgba(0,255,0,.5)') || 
-                        (incorrect && 'rgba(255,0,0,.5)') || 
-                        'rgba(120,120,120,.5)'
+    let {correct, incorrect,hasFocus,staged,stageCallback} = this.props
+    let bounds_color =  (correct && colors.c_bounds) || 
+                        (incorrect && colors.i_bounds) || 
+                        colors.u_bounds
 
     let border_style = ((hasFocus && {
                          padding: 0, borderWidth:4,
                          borderColor:bounds_color
-                       }))
+                       }) ||{padding: 4, borderWidth:0}
+                       )
 
     let handlers = this.state.panResponder.panHandlers
     return (
@@ -450,13 +481,29 @@ class SkillAppRow extends RisingComponent {
         <CorrectnessToggler correct={correct} incorrect={incorrect}
                             toggleCallback={this.props.toggleCallback}
                             focusCallback={this.props.focusCallback}/>
-        <Animated.View style = {[styles.inner, border_style,
+        <StageButton stageCallback={stageCallback} hasFocus={staged}/>
+        <Animated.View style = {[
+            styles.app_row, border_style,
             {transform : [{scale:this.state.scale_anim}]},
             gen_shadow(this.state.elevation)
           ]}
-             {...this.hover_handler}>
+            {...this.hover_handler}
+        >
+          <View style={[styles.header,{flexDirection:'row'}]}>
+            <Text style={[styles.header_text,{textAlign:'left'}]}>{
+              this.props.skill_app.input}
+            </Text>
+            <View style={{marginLeft:'auto',marginTop:'auto'}}>
+              <Text style={styles.label_text}>{
+                this.props.skill_app.skill_label || 'no label'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.inner}>
             <Text style={[styles.inner_text]}>{
-              this.props.innerHTML}</Text>
+                this.props.skill_app.how}
+            </Text>
+          </View>
         </Animated.View>
     </View>)
   }
@@ -514,6 +561,29 @@ class SkillAppBox extends RisingComponent{
                    focus_index: 0}
   }
 
+  // shouldComponentUpdate(nextProps, nextState){
+  //   let [state,props] = [this.state,this.props]
+  //   console.log("THIS PROPS", this.props)
+  //   // let didUpdate = false
+  //   if((Platform.OS == 'web' && nextState.elevation != state.elevation) ||
+  //      nextProps.skill_applications.length != props.skill_applications.length ||
+  //      nextProps.hasFocus != props.hasFocus ||
+  //      nextProps.focus_index != props.focus_index ||
+  //      nextProps.staged_index != props.staged_index
+  //      ){
+  //     return true
+  //   }else{
+  //     for(let i=0; i<nextProps.skill_applications.length;i++){
+  //       let nsa = nextProps.skill_applications[i]
+  //       let sa = props.skill_applications[i]
+  //       if((nsa.reward == null) != (sa.reward == null) || nsa.reward != sa.reward){
+  //         return true
+  //       }
+  //     }
+  //   }
+  //   return false
+  // }
+
   componentDidMount () {
     // console.log("MOUNT")
     if(this.main_content && this.main_content.current){
@@ -531,11 +601,14 @@ class SkillAppBox extends RisingComponent{
   }
 
   render(){
-    // console.log("RERENDER")
+    // console.time('box_rerender')
+    console.log('rerender box',this.props.skill_applications[0].input)
+    let {hasFocus} = this.props
+
     let sbp = this.state.staged_button_props
     let cbp = this.state.correct_button_props
     let ibp = this.state.incorrect_button_props
-    let hasFocus = this.props.hasFocus
+    
     let b_scale = (hasFocus && 1.1) || 1
     let bh_scale = (hasFocus && 1.3) || 1.2
     let handlers = this.state.panResponder.panHandlers
@@ -543,48 +616,48 @@ class SkillAppBox extends RisingComponent{
     let shadow_props = gen_shadow(this.state.elevation);
     let contents = []
     let any_staged = false
-    // let j = 0;
     for(let j=0; j < this.props.skill_applications.length; j++){
       let skill_app = this.props.skill_applications[j]
 
       let toggleCallback = this.props.toggleCallbacks[j]
-      // console.log("toggleCallbacks",this.props.toggleCallbacks,toggleCallback)
       
       let correct = skill_app.reward > 0 || false
       let incorrect = skill_app.reward < 0 || false
       let staged = skill_app.is_staged || false
       let innerHTML = skill_app.how
 
-      // let i = j
       const focusCallback = (evt)=>{
-        // console.log("BLOOP RERENDER", this.state.focus_index,j)
         this.props.focusCallback(j) //Call parent focus callback
         this.setState({focus_index: j})
       }
-      
+
+      const stageCallback = (evt)=>{
+        this.props.stageCallback(j) //Call parent focus callback
+      }
+
       let hasFocus_j = hasFocus && (this.state.focus_index === j)
       contents.push(<SkillAppRow correct={correct}
                                  incorrect={incorrect}
+                                 staged={this.props.staged_index==j}
                                  hasFocus={hasFocus_j}
+                                 skill_app={skill_app}
                                  innerHTML={innerHTML}
                                  focusCallback={focusCallback}
                                  toggleCallback={toggleCallback}
+                                 stageCallback={stageCallback}
                                  key={j.toString()}
                     />)
       if(staged){any_staged = true}
-      // j++
 
     }
     let correct = true
     let incorrect = true
-    return(
+    const out = (
         <Animated.View style={[styles.skill_app_container,
             {transform : [
               {scale : this.state.scale_anim},
               {translateX : this.state.position.x},
               {translateY : this.state.position.y}],
-            // borderWidth: (hasFocus && 4.5) || null,
-            // borderColor: 'rgba(128,0,128, .5)',
             zIndex : this.props.zIndex,
            },
           shadow_props
@@ -605,53 +678,29 @@ class SkillAppBox extends RisingComponent{
                       {String.fromCharCode(10303)} 
                 </Text>                             
               </View>
-
               <View>
-                <AnimatedButton
-                  parentHasFocus={hasFocus} 
-                  preinitial={{x:0,y:-20,scale:.4}}
-                  initial={{x:-30,y:-45,scale:b_scale}}
-                  hover={{scale:bh_scale}}
-                  hasFocus={any_staged}
-                  >
-                 <Text style={[styles.float_button,
-                                  any_staged && styles.staged_selected]}>
-                      {String.fromCharCode(8617)}
-                      
-                 </Text>
-                </AnimatedButton>
-                {/*<AnimatedButton 
-                  parentHasFocus={hasFocus}
-                  preinitial={{x:0,y:-15,scale:.4}}
-                  initial={{x:-30,y:-15,scale:b_scale}}
-                  hover={{scale:bh_scale}}
-                  hasFocus={correct}
-                  >
-                 <Text style={[styles.feedback_button,
-                                  correct && styles.correct_selected]}>
-                      {String.fromCharCode(10004)}
-                 </Text>
-                </AnimatedButton>
-                <AnimatedButton 
-                  parentHasFocus={hasFocus}
-                  preinitial={{x:0,y:-5,scale:.4}}
-                  initial={{x:-8,y:3,scale:b_scale}}
-                  hover={{scale:bh_scale}}
-                  hasFocus={incorrect}
-                >
-                 <Text style={[styles.feedback_button,
-                                  incorrect && styles.incorrect_selected]}>
-                      {String.fromCharCode(10006)}
-                 </Text>
-                </AnimatedButton>*/}
             </View>
           </View>
         </TouchableHighlight> 
         </Animated.View>
-    
     )
+    // console.timeEnd('box_rerender')
+    return out
   }
 }
+
+const colors = {
+  "c_bounds" : 'rgba(10,220,10,.6)',
+  "i_bounds" : 'rgba(255,0,0,.6)',
+  "u_bounds" : 'rgba(120,120,120,.5)',
+  "c_knob" : 'limegreen',
+  "i_knob" : 'red',
+  "u_knob" : 'lightgray',
+  "c_knob_back" : 'rgb(100,200,100)',
+  "i_knob_back" : 'rgb(200,100,100)',
+  "u_knob_back" : 'rgb(180,180,180)'
+}
+
 
 const styles = StyleSheet.create({
   handle: {
@@ -711,63 +760,77 @@ const styles = StyleSheet.create({
     // width : 300
     // width : 300
   },
-  header : {
-    backgroundColor: "#F5FCFF",
-    // flexGrow: 1,
-    // position : "relative",
-    height : 20,
-    borderRadius : 5,
-    padding: 2,
-    // alignItems:"center",
-    
-    alignSelf:"stretch",
-    // justifySelf:"start",
-    // width: 100,
-  },
-  header_text : {
-    fontSize : 16,
-    textAlign:"center",
-    fontFamily : "Factoria",
-    // numberOfLines: 1,
-  },
-  inner_text: {
-    // maxWidth : 250,
-    // flex: 1,
-    flexWrap: 'wrap',
-    // textAlign: 'right'
-    backgroundColor: "white",
-    borderRadius : 5,
-    padding : 5,
-    width : '100%',
-    minHeight: 40,
-    // paddingLeft
-    // height : 40,
-
-  },
-  inner: {
-    // flex:1,
+  app_row: {
     maxWidth : 200,
-    flexDirection:"row",
+    flexDirection:"column",
     borderWidth:2.5,
     borderRadius:10,
     borderColor : 'rgba(120,120,120,.0)',
-    padding : 1,
+    // padding : 1,
     left: 20,
-    // paddingLeft : 20,
-    // alignSelf : 'flex-start',
+  },
+  header : {
+    backgroundColor: "#F5FCFF",
+    borderRadius : 5,
+    borderBottomLeftRadius : 0,
+    borderBottomRightRadius : 0,
+    borderBottomWidth : .5,
+    borderBottomColor : 'lightgray'
 
-    // flexShrink:1, 
-    // maxWidth: 2000,
-    // minWidth: 200
-    
-    // paddingLeft : 20,
-   
-    
-    // height : 200,
+  },
+  inner: {
+    // borderRadius:10,
+    backgroundColor: "white",
+    borderTopLeftRadius : 0,
+    borderTopRightRadius : 0,
+    borderBottomLeftRadius : 10,
+    borderBottomRightRadius : 10,
+  },
+
+  header_text : {
+    padding: 6,
+    paddingBottom: 4,
+    fontSize : 20,
+    fontWeight: 'bold',
+    textAlign:"center",
+    fontFamily : "Geneva",
+    minHeight: 32,
+    // color : "darkdarkgray"
+  },
+  label_text: {
+    padding:6,
+    paddingRight:10,
+    paddingBottom: 4,
+    fontSize : 16,
+    color: "gray",
+    textAlign:"center",
+    fontFamily : "Geneva",
+  },
+  inner_text: {
+    flexWrap: 'wrap',
+    // backgroundColor: "white",
+    // borderBottomLeftRadius : 10,
+    // borderBottomRightRadius : 10,
+    // fontFamily : "San Fransisco",
+    fontFamily : "Geneva",
     // borderRadius : 5,
-    // padding: 5,
-    // paddingTop:20,
     
+    padding : 6,
+    paddingBottom : 4,
+    paddingTop : 8,
+    width : '100%',
+    minHeight: 20,
+  },
+  stage_button : {
+    position: 'absolute',
+    flex: 1,
+    // width:27,
+    width :20,
+    height:12,
+    borderRadius: 40,
+    borderTopRightRadius: 10,
+    borderBottomRightRadius: 10,
+    backgroundColor: 'rgba(190,190,190,.8)'
   },
   feedback_button_text:{
     fontSize: Platform.OS == 'android' ? 10 : 12,
@@ -781,7 +844,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(190,190,190,.8)'//"lightgray",
   },
   float_button:{
-    // position : "relative",
     fontSize: 20,
     width:27,
     textAlign:"center",
@@ -789,23 +851,9 @@ const styles = StyleSheet.create({
     borderRadius : 40,
     borderColor: 'gray',
     backgroundColor: 'rgba(190,190,190,.8)'//"lightgray",
-    // elevation : ,
-
-    // boxShadow: '-2px 2px 6px -2px #000000',
-    // shadowColor: '#000',
-    // shadowOffset: {
-    //     width : -2,
-    //     height : 2
-    // },
-    // shadowOpacity : 0.25,
-    // shadowRadius : 4,
-
   },
   incorrect_selected:{
     backgroundColor: "red",
-    // ...gen_shadow(10),
-    // borderWidth:23,
-    // borderColor:'#6399b0',
   },
   correct_selected:{
     backgroundColor: "limegreen",
@@ -813,57 +861,21 @@ const styles = StyleSheet.create({
   staged_selected:{
     backgroundColor: "dodgerblue",
   },
+
+  toggler: {
+    height:36,
+    width:12,
+    left: 3,
+    top: 6,
+    borderColor:'rgba(120,120,120,.4)',
+    borderWidth: 1,
+    borderRadius: 20,
+    backgroundColor: colors.u_knob_back,
+    ...gen_shadow(5)
+  },
 })
 
-// const skillbox_styles = StyleSheet.create({
-//   content: {
-//     // "display": "flex",
-//     // flex : 1,
-//     alignItems: "stretch",
-//     flexGrow: 1,
 
-//     "maxHeight" : "100%",
-//     // "flexDirection":"row-reverse",
-//     "flexDirection":"row",
-    
-//     backgroundColor: "#F5FCFF",
-//     // "width":"100%",
-//     borderRadius: 4,
-//     borderWidth: 0.5,
-//     borderColor: '#d6d7da',
-//     // overflow : "hidden",
-    
-//   },
-// });
-
-// const styles = StyleSheet.create({
-  
-  
-  
-//   match_container:{
-//     display: 'flex',
-//     flexDirection: 'row',
-//     // borderBottomWidth: 1,
-//     borderColor: 'gray',
-//     // width : 100,
-//     backgroundColor: "skyblue",
-//     // hei : 100
-
-//   },
-//   match: {
-//     flex: 1,
-//     flexWrap: 'wrap',
-//     // justifySelf: 'stretch',
-//     padding: 3,
-//     textIndent:5,
-//     fontSize: 15,
-//     backgroundColor: "'rgba(252,252,252,1.0)'",
-
-//   },
-//   selected_match:{
-//     backgroundColor: "#b3e8ff",
-//   },
-// })
 RisingComponent.defaultProps = {
     hasFocus : false,
 }
@@ -915,34 +927,59 @@ CorrectnessToggler.defaultProps = {
     focused_pos : {x: -6, y: 40},
     default_pos : {x: -6, y: 40}
   },
-  // correct_pos : {c_y: 0, i_y:10,i_scale:.7,c_scale:1},
-  // incorrect_pos : {c_y: -8, i_y:1,i_scale:1,c_scale:.7},
-  // default_pos : {c_y: -6, i_y:8,i_scale:.7,c_scale:.7}
+  top_touch_area: { 
+    width:30,
+    height:24,
+    position:'absolute',
+    alignItems:"center",
+    top: 1,//-4,
+    left: -8,
+    // backgroundColor: 'red',
+    // opacity : .2,
+  },
+  bottom_touch_area: { 
+    width:30,
+    height:23,
+    position:'absolute',
+    alignItems:"center",
+    top: 25,
+    left: -8,
+    // backgroundColor: 'blue',
+    // opacity : .2,
+  }
+}
+
+StageButton.defaultProps = {
+  grabbed_scale : 1.500,
+  focused_scale : 1.100,
+  hover_scale : 1.100,
+  default_scale : 1.0,
+
+  grabbed_elevation : 10,
+  focused_elevation : 4,
+  hover_elevation : 2,
+  default_elevation : 2,
+
+  default_pos : {x: 2, y: 0},//{x: -18, y: 52},
+  focused_pos : {x: -4, y: 0},//{x: -18, y: 52},
+  hover_pos : {x: -1, y: 0},//{x: -18, y: 52},
+  touch_area: { 
+    top: 48,
+    left: -22,
+    width:36,
+    height:30,
+    position:'absolute',
+    alignItems:"center",
+    // backgroundColor: 'green',
+    // opacity : .2,
+  },
+
 }
 
 CorrectnessTogglerKnob.defaultProps = {
   ...CorrectnessToggler.defaultProps.button_scale_elevation,
   ...CorrectnessToggler.defaultProps.c_anim,
 }
-// function no_op(){
-//  void 0;
-// }
-
-// SkillPanel.propTypes = {
-//   collapsedHeight: PropTypes.object,
-//   select_callback: PropTypes.func,
-// }
-
-// SkillPanel.defaultProps = {
-//   collapsedHeight: {"how": 40,
-//           "where": 90,
-//           "when": 90,
-//           "which": 40,
-//           },
-//    //"darkorchid", "#feb201",   "#ff884d", "#52d0e0", "#e44161",  "#2f85ee", "#562ac6", "#cc24cc"
-//    where_colors: [  "darkorchid",  "#ff884d",  "#52d0e0", "#feb201",  "#e44161", "#ed3eea", "#2f85ee",  "#562ac6", "#cc24cc"],
-//    select_callback: () => {}
-// }
 
 
 export default SkillAppBox;
