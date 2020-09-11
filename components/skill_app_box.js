@@ -667,7 +667,7 @@ class SkillAppBox extends RisingComponent{
           <TouchableHighlight >
            <View>
               <View {...handlers}{...this.hover_handler} 
-                style = {[styles.main_content,
+                style = {[styles.skill_app_box,
                             {width : (this.state.content_width || 200)+27}
                             ]}  >
                 
@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
     // justifySelf: "center",
     padding : 1,
     fontSize : 20,
-    width : 20,
+    // width : 18,
     paddingTop: 4,
     color: 'rgba(0,0,0,.5)'
     // backgroundColor : "gray"
@@ -716,7 +716,9 @@ const styles = StyleSheet.create({
   
   
   content_container : {
-    backgroundColor:"#EEEEEE", padding : 2, borderRadius: 5,
+    // backgroundColor:"#EEEEEE",
+    // padding : 2,
+    borderRadius: 5,
     paddingRight: 22,
   },
 
@@ -749,9 +751,9 @@ const styles = StyleSheet.create({
 
 
   },
-  main_content :{
+  skill_app_box :{
     flexDirection : 'row',
-    backgroundColor: 'rgba(141,222,255,.4)',//"skyblue",
+    backgroundColor: 'rgba(80,80,120,.3)',//'rgba(141,222,255,.4)',//"skyblue",
     // opacity:
     // position : "absolute",
     borderRadius : 10,
@@ -770,12 +772,12 @@ const styles = StyleSheet.create({
     left: 20,
   },
   header : {
-    backgroundColor: "#F5FCFF",
+    backgroundColor: 'white',//"#F5FCFF",
     borderRadius : 5,
     borderBottomLeftRadius : 0,
     borderBottomRightRadius : 0,
-    borderBottomWidth : .5,
-    borderBottomColor : 'lightgray'
+    // borderBottomWidth : .5,
+    // borderBottomColor : 'lightgray'
 
   },
   inner: {
@@ -841,7 +843,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 40,
     width:14,
-    backgroundColor: 'rgba(190,190,190,.8)'//"lightgray",
+    backgroundColor: 'rgba(170,170,170,.8)',//'rgba(190,190,190,.8)'//"lightgray",
   },
   float_button:{
     fontSize: 20,
@@ -867,7 +869,7 @@ const styles = StyleSheet.create({
     width:12,
     left: 3,
     top: 6,
-    borderColor:'rgba(120,120,120,.4)',
+    borderColor:'rgba(120,120,120,.2)',
     borderWidth: 1,
     borderRadius: 20,
     backgroundColor: colors.u_knob_back,
