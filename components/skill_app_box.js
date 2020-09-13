@@ -453,7 +453,6 @@ class SkillAppRow extends RisingComponent {
         this._update_scale_elevation_pos()
        },
        
-       onStartShouldSetPanResponder: (evt, gestureState) => true,
        onStartShouldSetPanResponderCapture: (evt, gestureState) => {
           return false
        },
@@ -478,8 +477,10 @@ class SkillAppRow extends RisingComponent {
 
   render(){
     console.log('RERERERE')
-    let {correct, incorrect,hasFocus,staged,stageCallback} = this.props
-    let bounds_color =  (correct && colors.c_bounds) || 
+    let {correct, incorrect,hasFocus,staged,
+        stageCallback, is_demonstation} = this.props
+    let bounds_color =  (is_demonstation && 'dodgerblue') ||
+                        (correct && colors.c_bounds) || 
                         (incorrect && colors.i_bounds) || 
                         colors.u_bounds
 
@@ -489,17 +490,25 @@ class SkillAppRow extends RisingComponent {
                        }) ||{padding: 2, borderWidth:2}
                        )
 
+    let right_border_color = (is_demonstation && 'dodgerblue') ||
+                             (correct && colors.c_knob) || 
+                             (incorrect && colors.i_knob) || 
+                             colors.u_knob
+    let right_border_style = (!hasFocus && {borderRightColor:right_border_color,
+                              borderRightWidth:4})
+
     let handlers = this.state.panResponder.panHandlers
     return (
       <View {...handlers}>
+        
         <CorrectnessToggler correct={correct} incorrect={incorrect}
                             toggleCallback={this.props.toggleCallback}
                             focusCallback={this.props.focusCallback}/>
         <StageButton stageCallback={stageCallback} hasFocus={staged}
                      using_default_staged={this.props.using_default_staged}/>
         <Animated.View style = {[
-            styles.app_row, border_style,
-            {paddingBottom: 2},
+            right_border_style, styles.app_row, border_style,
+            {paddingBottom: 2,borderRightWidth:4},
             {transform : [{scale:this.state.scale_anim}]},
             gen_shadow(this.state.elevation)
           ]}
@@ -537,6 +546,27 @@ class SkillAppRow extends RisingComponent {
                 this.props.skill_app.how}
             </Text>
           </View>
+          {is_demonstation &&
+          <TouchableHighlight
+            underlayColor={'rgba(0,0,120,.2)'}
+            style={{
+                position : 'absolute',
+                right:2,
+                top:2,
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor : 'rgba(0,0,0,.05)',
+                width: 17,
+                height: 17,
+                borderRadius: 20,
+            }}
+            onPress={()=>{this.props.removeCallback()}}
+          >
+            <Text style={{textAlign:'center'}}>
+            {String.fromCharCode(10005)}
+            </Text>
+          </TouchableHighlight> 
+        }
         </Animated.View>
     </View>)
   }
@@ -554,20 +584,22 @@ class SkillAppBox extends RisingComponent{
     this.anim_ref = null;
     this.is_grabbed = false
     this.is_hover = false
+    this.prev_focus_index = 0;
     const panResponder = PanResponder.create({
        onStartShouldSetPanResponder: () => true,
 
        onPanResponderGrant: (evt, gestureState) => {
         this.is_grabbed = true
         this._update_scale_elevation_pos()
-        this.props.focusCallback(this.props.focus_index)
+        let fi = Math.min(this.prev_focus_index,
+                  this.props.skill_applications.length-1)
+        this.props.focusCallback(fi)
        },
        onPanResponderMove: (event, gesture) => {
           
           position.setValue({x: gesture.dx,
                               y: gesture.dy });
        },
-       onStartShouldSetPanResponder: (evt, gestureState) => true,
        onStartShouldSetPanResponderCapture: (evt, gestureState) => {
           return false
        },
@@ -652,25 +684,35 @@ class SkillAppBox extends RisingComponent{
     for(let j=0; j < this.props.skill_applications.length; j++){
       let skill_app = this.props.skill_applications[j]
 
-      let toggleCallback = this.props.toggleCallbacks[j]
+      
       
       let correct = skill_app.reward > 0 || false
       let incorrect = skill_app.reward < 0 || false
+      let is_demonstation = skill_app.stu_resp_type == "HINT_REQUEST"
       let staged = skill_app.is_staged || false
       let innerHTML = skill_app.how
 
       const focusCallback = (evt)=>{
         this.props.focusCallback(j) //Call parent focus callback
-        // this.setState({focus_index: j})
+        this.prev_focus_index = j
       }
 
       const stageCallback = (evt)=>{
         this.props.stageCallback(j) //Call parent focus callback
       }
 
+      const removeCallback = (evt)=>{
+        this.props.removeCallback(j) //Call parent focus callback
+      }
+
+      const toggleCallback = (nxt)=>{
+        this.props.toggleCallback(nxt,j) //Call parent focus callback
+      }
+
       let hasFocus_j = hasFocus && (this.props.focus_index === j)
       contents.push(<SkillAppRow correct={correct}
                                  incorrect={incorrect}
+                                 is_demonstation={is_demonstation}
                                  staged={this.props.staged_index==j}
                                  using_default_staged={using_default_staged}
                                  hasFocus={hasFocus_j}
@@ -679,6 +721,7 @@ class SkillAppBox extends RisingComponent{
                                  focusCallback={focusCallback}
                                  toggleCallback={toggleCallback}
                                  stageCallback={stageCallback}
+                                 removeCallback={removeCallback}
                                  key={j.toString()}
                     />)
       if(staged){any_staged = true}

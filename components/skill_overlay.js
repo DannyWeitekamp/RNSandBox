@@ -53,7 +53,7 @@ class SkillOverlay extends Component{
 
   group_skill_apps(next_sk_apps,prev_sk_apps){
     let selection_groups = {}
-    let toggleCallback_groups = {}
+    // let toggleCallback_groups = {}
     let selection_order = []
     let first_sel;
     for (let j=0; j < next_sk_apps.length; j++){
@@ -62,36 +62,37 @@ class SkillOverlay extends Component{
       if(!first_sel){first_sel = sel}
       
       let sel_g = []
-      let cb_g = []
+      // let cb_g = []
       // let index
       if(sel in selection_groups){
         sel_g = selection_groups[sel]
         // index = sel_g[0].index
-        cb_g = toggleCallback_groups[sel]
+        // cb_g = toggleCallback_groups[sel]
       }else{
         selection_order.push(sel)
       }
 
-      let i = sel_g.length
-      let cb = (nxt)=>{
-        console.log("CALLBACK",sel,i,nxt)
-        let sgs = this.state.selection_groups
-        // let i = this.state.selection_order[j]
-        sgs[sel][i] = {...sgs[sel][i],reward:nxt.correct ? 1 : -1}
-        this.setState({selection_groups:sgs})
-      }
+      // let i = sel_g.length
+      // let cb = (nxt)=>{
+      //   console.log("CALLBACK",sel,i,nxt)
+      //   let sgs = this.state.selection_groups
+      //   // let i = this.state.selection_order[j]
+      //   sgs[sel][i] = {...sgs[sel][i],reward:nxt.correct ? 1 : -1}
+      //   this.setState({selection_groups:sgs})
+      // }
 
       sel_g.push({...skill_app})
-      cb_g.push(cb)
+      // cb_g.push(cb)
       selection_groups[sel] = sel_g
-      toggleCallback_groups[sel] = cb_g
+      // toggleCallback_groups[sel] = cb_g
       
     }
     return {//staged_sel : first_sel,
             //staged_index : 0,
             selection_order: selection_order,
             selection_groups: selection_groups,
-            toggleCallback_groups: toggleCallback_groups}
+            // toggleCallback_groups: toggleCallback_groups}
+          }
   }
 
   findDefaultStaged(){
@@ -161,9 +162,10 @@ class SkillOverlay extends Component{
       let skill_app_index;
       if(sel === this.state.focus_sel){
         skill_app_index = this.state.focus_index
+        console.log("FOCUS_INDEX", this.state.focus_index)
         let skill_app = sg[skill_app_index]
         console.log("SELECTED", skill_app)
-        if(skill_app.foci_of_attention){
+        if(skill_app && skill_app.foci_of_attention){
 
           for (let k=0; k < skill_app.foci_of_attention.length; k++){
             let foa = skill_app.foci_of_attention[k]
@@ -188,10 +190,11 @@ class SkillOverlay extends Component{
       let skill_app = sg[skill_app_index]
       let correct = skill_app.reward > 0
       let incorrect = skill_app.reward < 0
+      let is_demonstation = skill_app.stu_resp_type == "HINT_REQUEST"
 
       let focusCallback = (index)=>{
 
-       console.log("Set FOCUS", sel)
+       console.log("Set FOCUS", sel,index)
        this.state.selection_order.splice(
           this.state.selection_order.indexOf(sel),1)
        let new_sel_order = [...this.state.selection_order,sel]
@@ -210,11 +213,37 @@ class SkillOverlay extends Component{
 
       let demonstrateCallback = (action,input)=>{
         let _sgs = this.state.selection_groups
-        _sgs[sel].push({selection:sel ,action: action, input:input,'reward':1})
+        _sgs[sel].push({
+                selection:sel,
+                action: action,
+                input:input,
+                stu_resp_type : "HINT_REQUEST",
+                reward:1})
         focusCallback(_sgs[sel].length-1)
         this.setState({selection_groups : _sgs})
-        
-        // this.setState({"demonstrate_sel" : sel,"demonstrate_index": index})  
+      }
+
+      let toggleCallback = (nxt,index)=>{
+        console.log("CALLBACK",sel,index,nxt)
+        let _sgs = this.state.selection_groups
+        // let i = this.state.selection_order[j]
+        _sgs[sel][index] = {..._sgs[sel][index],reward:nxt.correct ? 1 : -1}
+        this.setState({selection_groups:_sgs})
+      }
+
+      let removeCallback = (index)=>{
+        let _sgs = this.state.selection_groups
+        let fi = this.state.focus_index
+        let fs = this.state.focus_sel
+        _sgs[sel].splice(index,1)
+        if(_sgs[sel].length == 0){
+          delete _sgs[sel]
+        }
+        fi = fi >= index ? (fi - 1) : fi
+        if(fi < 0){[fs,fi] = [selection_order[0],0]}
+        this.setState({selection_groups : _sgs,
+                       focus_sel: fs,
+                       focus_index: fi})
       }
 
       possibilities.push(
@@ -226,6 +255,7 @@ class SkillOverlay extends Component{
           hasFocus={hasFocus}
           correct={correct}
           incorrect={incorrect}
+          is_demonstation={is_demonstation}
           //demonstrating={demonstrate_sel == sel && staged_index == skill_app_index}
           demonstrateCallback={demonstrateCallback}
         />        
@@ -245,8 +275,9 @@ class SkillOverlay extends Component{
           key={sel}
           skill_applications={sg}
           hasFocus={hasFocus}
-          toggleCallbacks={this.state.toggleCallback_groups[sel]}
+          toggleCallback={toggleCallback}
           stageCallback={stageCallback}
+          removeCallback={removeCallback}
         />
       )
       j++

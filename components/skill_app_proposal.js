@@ -82,13 +82,14 @@ class SkillAppProposal extends Component {
     }
   }
   render(){
-    let {skill_app, bounds, hasFocus, staged, correct, incorrect, color} = this.props
+    let {skill_app, bounds, hasFocus, staged,
+         correct, incorrect, is_demonstation, color} = this.props
     
     let shadow_props = gen_shadow(this.state.elevation);
 
 
     color = color ||
-            // (staged && 'blue') ||
+            //(is_demonstation && 'dodgerblue') ||
             (correct && this.props.correct_color) ||
             (incorrect && this.props.incorrect_color) ||
             (this.props.default_color)
@@ -118,6 +119,7 @@ class SkillAppProposal extends Component {
                         source={images.tap} />
                       </View>
       }else{
+          // console.log("COOOOOLOR", color,correct,incorrect)
         // if(this.props.demonstrating){
           innerContent = (<Text
                             styles={{
@@ -126,14 +128,14 @@ class SkillAppProposal extends Component {
                               textAlign:"center",
                               width:bounds.width,
                               height:bounds.height,
-                              paddingBottom: 4,
+                              // paddingBottom: 4,
                               // paddingBottom: 20,
                             }}
                           >
                         <TextInput style = {{
                             textAlign:"center",
                             alignSelf: "center",
-                            paddingBottom: 4,
+                            // paddingBottom: 4,
                             color:'dodgerblue',
                             fontSize : fontSize*.9,
                             width:bounds.width,
@@ -187,7 +189,7 @@ class SkillAppProposal extends Component {
                        
                       borderWidth: (hasFocus && 8) || 4,
                       borderRadius: 10,
-                      borderColor: color,//(hasFocus && "rgba(143,40,180, .7)") || "gray",
+                      borderColor: (!is_demonstation && color) || 'dodgerblue',//(hasFocus && "rgba(143,40,180, .7)") || "gray",
                       width:bounds.width+12,
                       height:bounds.height+12,
                       justifyContent: "center",
