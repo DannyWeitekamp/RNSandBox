@@ -40,7 +40,9 @@ class SkillOverlay extends Component{
     this.state = {
      focus_sel : this.props.skill_applications[0].selection,
      focus_index : 0,
-     staged_sel : this.props.skill_applications[0].selection,
+     demonstrate_sel: null,
+     demonstrate_index: null,
+     staged_sel : null,//this.props.skill_applications[0].selection,
      // staged_index : 0,
      staged_index : null,
      ...this.group_skill_apps(this.props.skill_applications,{})
@@ -85,11 +87,25 @@ class SkillOverlay extends Component{
       toggleCallback_groups[sel] = cb_g
       
     }
-    return {staged_sel : first_sel,
-            staged_index : 0,
+    return {//staged_sel : first_sel,
+            //staged_index : 0,
             selection_order: selection_order,
             selection_groups: selection_groups,
             toggleCallback_groups: toggleCallback_groups}
+  }
+
+  findDefaultStaged(){
+    for (let sel in this.state.selection_groups){
+      let sg = this.state.selection_groups[sel]
+      for (let i=0; i<sg.length; i++){
+        let skill_app = sg[i]
+        if(skill_app.reward > 0){
+          return [skill_app.selection, i]
+        }
+      }
+    }
+    return [null, null]
+
   }
 
   componentDidUpdate(prevProps) {
@@ -114,7 +130,20 @@ class SkillOverlay extends Component{
     let highlights = []
     let connectors = []
     console.log('\n\nrender overlay\n\n')
-
+    let {staged_sel, staged_index,
+         demonstrate_sel, demonstrate_index} = this.state
+    // let staged_sel = this.state.staged_sel 
+    // let staged_index = this.state.staged_index
+    // console.log("R)
+    let using_default_staged = false
+    if(staged_sel == null || staged_index == null){
+      [staged_sel,staged_index] = this.findDefaultStaged()
+      using_default_staged = true
+    }
+    if(staged_sel == null || staged_index == null){
+      staged_sel = Object.keys(this.state.selection_groups)[0]
+      staged_index = 0
+    }
 
 
     
@@ -123,15 +152,16 @@ class SkillOverlay extends Component{
       let sg = this.state.selection_groups[sel]
       let bounds = bounding_boxes[sel]
 
-      let staged_index
-      if(this.state.staged_sel==sel && this.state.staged_index != null){
-        staged_index = this.state.staged_index
-      }
+      // let staged_index
+      // if(this.state.staged_sel==sel && this.state.staged_index != null){
+      //   staged_index = this.state.staged_index
+      // }
 
       let hasFocus = false
-      let skill_app;
+      let skill_app_index;
       if(sel === this.state.focus_sel){
-        skill_app = sg[this.state.focus_index]
+        skill_app_index = this.state.focus_index
+        let skill_app = sg[skill_app_index]
         console.log("SELECTED", skill_app)
         if(skill_app.foci_of_attention){
 
@@ -147,25 +177,17 @@ class SkillOverlay extends Component{
           }
         }
         hasFocus = true
-      }else if(staged_index){
-        skill_app = sg[staged_index]
+      }else if(staged_sel == sel){
+        skill_app_index = staged_index
+        // skill_app = sg[staged_index]
       }else{
-        skill_app = sg.find(sa => sa.reward > 0) || sg[0];  
+        skill_app_index = sg.findIndex(sa => sa.reward > 0) || 0; 
+        if(skill_app_index == -1){skill_app_index = 0} 
       }
+      console.log("BLOOP",sel,staged_sel,staged_index,using_default_staged)
+      let skill_app = sg[skill_app_index]
       let correct = skill_app.reward > 0
       let incorrect = skill_app.reward < 0
-
-      possibilities.push(
-        <SkillAppProposal
-          key={sel}
-          bounds={bounds}
-          //staged={staged_index != null}
-          skill_app={skill_app}
-          hasFocus={hasFocus}
-          correct={correct}
-          incorrect={incorrect}
-        />        
-      )
 
       let focusCallback = (index)=>{
 
@@ -179,15 +201,46 @@ class SkillOverlay extends Component{
 
       let stageCallback = (index)=>{
         console.log("STAGE", sel,index)
-        this.setState({"staged_sel" : sel,"staged_index":index})
+        if(this.state.staged_sel == sel && this.state.staged_index == index ){
+          this.setState({"staged_sel" : null,"staged_index": null})
+        }else{
+          this.setState({"staged_sel" : sel,"staged_index": index})  
+        }
       }
+
+      let demonstrateCallback = (action,input)=>{
+        let _sgs = this.state.selection_groups
+        _sgs[sel].push({selection:sel ,action: action, input:input,'reward':1})
+        focusCallback(_sgs[sel].length-1)
+        this.setState({selection_groups : _sgs})
+        
+        // this.setState({"demonstrate_sel" : sel,"demonstrate_index": index})  
+      }
+
+      possibilities.push(
+        <SkillAppProposal
+          key={sel}
+          bounds={bounds}
+          staged={staged_sel == sel && staged_index == skill_app_index}
+          skill_app={skill_app}
+          hasFocus={hasFocus}
+          correct={correct}
+          incorrect={incorrect}
+          //demonstrating={demonstrate_sel == sel && staged_index == skill_app_index}
+          demonstrateCallback={demonstrateCallback}
+        />        
+      )
+
       
+      
+      console.log("BLEEP", staged_sel == sel ? staged_index : null)
       skill_boxes.push(
         <SkillAppBox
           zIndex={j}
           focusCallback = {focusCallback}
           initial_pos ={{x: bounds.x+bounds.width+10, y: bounds.y-70}}//{{x: 0, y: 0}}
-          staged_index ={staged_index}
+          staged_index ={staged_sel == sel ? staged_index : null}
+          using_default_staged={using_default_staged}
           focus_index ={this.state.focus_index}
           key={sel}
           skill_applications={sg}

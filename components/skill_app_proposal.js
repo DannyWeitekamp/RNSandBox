@@ -1,6 +1,6 @@
 import React, { Component, createRef } from 'react'
-import { TouchableHighlight, TouchableNativeFeedback,ScrollView,View, Text, Image,StyleSheet,
-         Animated, PanResponder,useRef,Platform } from "react-native";
+import { TouchableHighlight, TouchableWithoutFeedback,ScrollView,View, Text, Image,StyleSheet,
+         Animated, PanResponder,useRef,Platform,TextInput } from "react-native";
 import autobind from "class-autobind";
 
 const images = {
@@ -23,7 +23,9 @@ class SkillAppProposal extends Component {
 
     const scale_anim = new Animated.Value(1,
       {useNativeDriver: true});
-    this.state = {elevation,scale_anim};
+
+    this.text_input = React.createRef();
+    this.state = {elevation,scale_anim,demonstrate_text:null};
   }
   _update_scale_elevation(){
     this._animate_scale_elevation(
@@ -52,22 +54,25 @@ class SkillAppProposal extends Component {
     }
 
   }
-  shouldComponentUpdate(nextProps, nextState){
-    let props = this.props
-    let skill_app = props.skill_app
-    // console.log('check proposal',((skill_app && skill_app.input) || ""))
-    if(nextProps.hasFocus != props.hasFocus ||
-       nextProps.correct != props.correct ||
-       nextProps.incorrect != props.incorrect ||
-       nextProps.color != props.color ||
-       (nextProps.skill_app && 
-       (nextProps.skill_app.input != props.skill_app.input ||
-       nextProps.skill_app.action != props.skill_app.action))
-      ){
-      return true
-    }
-    return false
-  }
+  // shouldComponentUpdate(nextProps, nextState){
+  //   let props = this.props
+  //   let state = this.state
+  //   let skill_app = props.skill_app
+  //   // console.log('check proposal',((skill_app && skill_app.input) || ""))
+  //   if(state.elevation != nextState.elevation ||
+  //      nextProps.hasFocus != props.hasFocus ||
+  //      nextProps.correct != props.correct ||
+  //      nextProps.incorrect != props.incorrect ||
+  //      nextProps.staged != props.staged ||
+  //      nextProps.color != props.color ||
+  //      (nextProps.skill_app && 
+  //      (nextProps.skill_app.input != props.skill_app.input ||
+  //      nextProps.skill_app.action != props.skill_app.action))
+  //     ){
+  //     return true
+  //   }
+  //   return false
+  // }
 
   componentDidUpdate(prevProps) {
     console.log(prevProps)
@@ -77,17 +82,18 @@ class SkillAppProposal extends Component {
     }
   }
   render(){
-    let {skill_app, bounds, hasFocus, correct, incorrect, color} = this.props
+    let {skill_app, bounds, hasFocus, staged, correct, incorrect, color} = this.props
     
     let shadow_props = gen_shadow(this.state.elevation);
 
 
     color = color ||
+            // (staged && 'blue') ||
             (correct && this.props.correct_color) ||
             (incorrect && this.props.incorrect_color) ||
             (this.props.default_color)
 
-    let text = ((skill_app && skill_app.input) || "")//.value || ""
+    let text = this.state.demonstrate_text || ((skill_app && skill_app.input) || "")//.value || ""
     let fontSize = (Math.max(bounds.width,100)/((Math.min(text.length||1,8)-1)*.5 + 1))
     console.log('fontSize',fontSize)
     
@@ -112,25 +118,78 @@ class SkillAppProposal extends Component {
                         source={images.tap} />
                       </View>
       }else{
-        innerContent = <Text style = {{
-                          alignSelf: "center",
-                          color : color,//(hasFocus && "rgba(143,40,180, .7)") || "gray",
-                          fontSize : fontSize,
-                      }}>
-                        {text}
-                      </Text>
+        // if(this.props.demonstrating){
+          innerContent = (<Text
+                            styles={{
+                              flex:1,
+                              justifyContent:'center',
+                              textAlign:"center",
+                              width:bounds.width,
+                              height:bounds.height,
+                              paddingBottom: 4,
+                              // paddingBottom: 20,
+                            }}
+                          >
+                        <TextInput style = {{
+                            textAlign:"center",
+                            alignSelf: "center",
+                            paddingBottom: 4,
+                            color:'dodgerblue',
+                            fontSize : fontSize*.9,
+                            width:bounds.width,
+                            height:bounds.height,
+                            overflow:'hidden'
+                        }}
+                          ref={this.text_input}
+                          placeholderTextColor={color}
+                          placeholder={text}
+                          onFocus={(e) => e.target.placeholder = ""} 
+                          onBlur={(e) => e.target.placeholder = text}
+                          multiline={true}
+                          scrollEnabled={false}
+                          editable={true}
+                          onChangeText={(t)=>{
+                            console.log('change')
+                            this.setState({demonstrate_text:t})}
+                          }
+                          onEndEditing={()=>alert("END")}
+                          onKeyPress={(evt)=>{
+                            if(evt.charCode==13 && !evt.shiftKey){
+                              console.log("ENTER PRESSED",this.state.demonstrate_text,evt.currentTarget)  
+                              this.props.demonstrateCallback("UpdateTextField", this.state.demonstrate_text)
+                              this.setState({demonstrate_text:null})
+                              this.text_input.current.blur()
+                              this.text_input.current.clear()
+                            }
+                          }}
+                        />
+                        </Text>
+                        )
+        // }else{
+        //   innerContent = <Text style = {{
+        //                     alignSelf: "center",
+        //                     color : color,//(hasFocus && "rgba(143,40,180, .7)") || "gray",
+        //                     fontSize : fontSize,
+        //                 }}>
+        //                   {text}
+        //                 </Text>
+        // }
       }
     }
 
 
-    return <Animated.View  style= {[{
+    return (
+      
+        <Animated.View  style= {[{
                       position : "absolute",
+                      left: -6,
+                      top: -6,
                        
                       borderWidth: (hasFocus && 8) || 4,
                       borderRadius: 10,
                       borderColor: color,//(hasFocus && "rgba(143,40,180, .7)") || "gray",
-                      width:bounds.width,
-                      height:bounds.height,
+                      width:bounds.width+12,
+                      height:bounds.height+12,
                       justifyContent: "center",
                       alignItems: "center",
 
@@ -143,9 +202,38 @@ class SkillAppProposal extends Component {
                     ,shadow_props
                   ]
         }>
+          {false &&
+            <View style= {{
+              position : "absolute",
+              borderWidth: (hasFocus && 3) || 2,
+              borderColor: 'dodgerblue',
+              opacity : .5,
+              borderRadius: 2,
+              width : "100%",
+              height : "100%"
+            }}/>
+          }
+          {staged &&
+            <View style ={{
+              position:'absolute',
+              width:bounds.width,
+              height:bounds.height,
+              zIndex:-1,
+            }}>
+              <Image
+                style ={{ 
+                  flex:1,
+                  tintColor: 'rgb(120,120,150)',
+                  opacity : .1,
+                }}
+                source={images.left_arrow} 
+              />
+            </View>
+          }
           {innerContent}
-          
         </Animated.View>
+      
+      )
   }
 }
 

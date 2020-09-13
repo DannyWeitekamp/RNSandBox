@@ -2,7 +2,7 @@ import React, { Component, createRef } from 'react'
 import PropTypes from 'prop-types'
 import { TouchableHighlight, 
         TouchableWithoutFeedback,ScrollView,View, Text, StyleSheet,
-         Animated, PanResponder,useRef,Platform, Image } from "react-native";
+         Animated, PanResponder,useRef,Platform, Image, TextInput } from "react-native";
 import { TouchableOpacity} from 'react-native-gesture-handler'
 
 const images = {
@@ -73,7 +73,8 @@ class RisingComponent extends Component {
     )
     // simple_animate(this,'elevation',next_size,config)
     if(Platform.OS == 'web'){ //For some reason can't animate shadows on web
-      simple_animate(this,'elevation',next_elevation,{...config,speed: 80})
+      // simple_animate(this,'elevation',next_elevation,{...config,speed: 80})
+      this.setState({elevation:next_elevation})
     }else{
       anims.push(
         Animated.spring(
@@ -221,7 +222,7 @@ class StageButton extends RisingComponent {
     this._update_scale_elevation_pos()
   }
   render(){
-    let {hasFocus} = this.props
+    let {hasFocus,using_default_staged} = this.props
     let text_color = ( (this.props.hasFocus) && 'black') ||
                       'rgba(0,0,0,.4)'
     return(
@@ -249,6 +250,7 @@ class StageButton extends RisingComponent {
                       left:-1,
                       alignSelf : (Platform.OS == 'android' && 'center') || 'auto',
                       resizeMode:'contain',
+                      tintColor : (using_default_staged && 'lightgray') || 'black',
                       transform:[
                         {scale: 1.0}
                       ]},
@@ -332,7 +334,7 @@ class CorrectnessToggler extends Component {
     }else{
       this.setState(next_state)
     }
-    this.props.focusCallback(this.state.focus_index)
+    this.props.focusCallback()
   }
   getCorrect(){
     if('correct' in this.state){
@@ -346,6 +348,7 @@ class CorrectnessToggler extends Component {
     }
     return this.props.incorrect || false
   }
+
 
 
   render(){
@@ -460,10 +463,21 @@ class SkillAppRow extends RisingComponent {
        }
        // onMoveShouldSetPanResponderCapture: (evt, gestureState) =>
     });
-    this.state = {...(this.state||{}), hover : false,panResponder}
+    this.state = {...(this.state||{}), hover : false,panResponder, label_height: 17}
+  }
+
+  updateLabel(e){
+    console.log('content size',e.nativeEvent)
+    // let tw = e.nativeEvent.text.length*9//styles.label_text.fontSize
+    // console.log("CONTENT CHANGE",tw,styles.label_text.fontSize)
+    // this.setState({label_height: Math.max(100*e.nativeEvent.contentSize.height,tw)})
+    let new_content_diff = e.nativeEvent.contentSize.height - this.state.label_height
+    if(new_content_diff < 0){new_content_diff = Math.min(new_content_diff,-17)}
+    this.setState({label_height: this.state.label_height+new_content_diff})
   }
 
   render(){
+    console.log('RERERERE')
     let {correct, incorrect,hasFocus,staged,stageCallback} = this.props
     let bounds_color =  (correct && colors.c_bounds) || 
                         (incorrect && colors.i_bounds) || 
@@ -472,7 +486,7 @@ class SkillAppRow extends RisingComponent {
     let border_style = ((hasFocus && {
                          padding: 0, borderWidth:4,
                          borderColor:bounds_color
-                       }) ||{padding: 4, borderWidth:0}
+                       }) ||{padding: 2, borderWidth:2}
                        )
 
     let handlers = this.state.panResponder.panHandlers
@@ -481,23 +495,42 @@ class SkillAppRow extends RisingComponent {
         <CorrectnessToggler correct={correct} incorrect={incorrect}
                             toggleCallback={this.props.toggleCallback}
                             focusCallback={this.props.focusCallback}/>
-        <StageButton stageCallback={stageCallback} hasFocus={staged}/>
+        <StageButton stageCallback={stageCallback} hasFocus={staged}
+                     using_default_staged={this.props.using_default_staged}/>
         <Animated.View style = {[
             styles.app_row, border_style,
+            {paddingBottom: 2},
             {transform : [{scale:this.state.scale_anim}]},
             gen_shadow(this.state.elevation)
           ]}
             {...this.hover_handler}
         >
-          <View style={[styles.header,{flexDirection:'row'}]}>
-            <Text style={[styles.header_text,{textAlign:'left'}]}>{
-              this.props.skill_app.input}
+          <View style={[styles.header]}>
+            <Text style={[styles.header_text,{textAlign:'left'}]}>
+              {this.props.skill_app.input}
+              {" "}
             </Text>
-            <View style={{marginLeft:'auto',marginTop:'auto'}}>
-              <Text style={styles.label_text}>{
-                this.props.skill_app.skill_label || 'no label'}
-              </Text>
+            <View style={{paddingLeft: 20, alignItems:'flex-end'}}>
+            <TextInput 
+              style={[styles.label_text, 
+                {height : this.state.label_height,
+                 width : 120,
+                 overflow:'hidden'}]}
+              defaultValue={this.props.skill_app.skill_label}
+              placeholder={'no label'}
+              onFocus={(e) => e.target.placeholder = ""} 
+              onBlur={(e) => e.target.placeholder = "no label"}
+              editable={true}
+              multiline={true}
+              onContentSizeChange={this.updateLabel}
+              scrollEnabled={false}
+              spellCheck={false}
+              //{/*onChange={this.updateLabel}*/}
+            />
             </View>
+
+            
+            
           </View>
           <View style={styles.inner}>
             <Text style={[styles.inner_text]}>{
@@ -527,7 +560,7 @@ class SkillAppBox extends RisingComponent{
        onPanResponderGrant: (evt, gestureState) => {
         this.is_grabbed = true
         this._update_scale_elevation_pos()
-        this.props.focusCallback(this.state.focus_index)
+        this.props.focusCallback(this.props.focus_index)
        },
        onPanResponderMove: (event, gesture) => {
           
@@ -557,8 +590,7 @@ class SkillAppBox extends RisingComponent{
         this._update_scale_elevation_pos()
       }
     })
-    this.state = {...(this.state||{}),panResponder,position, grabbed: false,
-                   focus_index: 0}
+    this.state = {...(this.state||{}),panResponder,position, grabbed: false}
   }
 
   // shouldComponentUpdate(nextProps, nextState){
@@ -602,8 +634,9 @@ class SkillAppBox extends RisingComponent{
 
   render(){
     // console.time('box_rerender')
-    console.log('rerender box',this.props.skill_applications[0].input)
-    let {hasFocus} = this.props
+    
+    let {hasFocus, using_default_staged} = this.props
+    console.log('rerender box',this.props.skill_applications[0].input,using_default_staged)
 
     let sbp = this.state.staged_button_props
     let cbp = this.state.correct_button_props
@@ -628,17 +661,18 @@ class SkillAppBox extends RisingComponent{
 
       const focusCallback = (evt)=>{
         this.props.focusCallback(j) //Call parent focus callback
-        this.setState({focus_index: j})
+        // this.setState({focus_index: j})
       }
 
       const stageCallback = (evt)=>{
         this.props.stageCallback(j) //Call parent focus callback
       }
 
-      let hasFocus_j = hasFocus && (this.state.focus_index === j)
+      let hasFocus_j = hasFocus && (this.props.focus_index === j)
       contents.push(<SkillAppRow correct={correct}
                                  incorrect={incorrect}
                                  staged={this.props.staged_index==j}
+                                 using_default_staged={using_default_staged}
                                  hasFocus={hasFocus_j}
                                  skill_app={skill_app}
                                  innerHTML={innerHTML}
@@ -767,22 +801,25 @@ const styles = StyleSheet.create({
     flexDirection:"column",
     borderWidth:2.5,
     borderRadius:10,
-    borderColor : 'rgba(120,120,120,.0)',
+    borderColor : 'rgba(120,120,120,.4)',
+    backgroundColor: 'white',
     // padding : 1,
     left: 20,
   },
   header : {
-    backgroundColor: 'white',//"#F5FCFF",
+    // backgroundColor: 'white',//"#F5FCFF",
     borderRadius : 5,
     borderBottomLeftRadius : 0,
     borderBottomRightRadius : 0,
-    // borderBottomWidth : .5,
-    // borderBottomColor : 'lightgray'
+    flexWrap: 'wrap',
+    flexDirection: 'column',
+    // borderBottomWidth : 1,
+    // borderBottomColor : 'white'
 
   },
   inner: {
     // borderRadius:10,
-    backgroundColor: "white",
+    // backgroundColor: "white",
     borderTopLeftRadius : 0,
     borderTopRightRadius : 0,
     borderBottomLeftRadius : 10,
@@ -790,8 +827,9 @@ const styles = StyleSheet.create({
   },
 
   header_text : {
+    flex: 1,
     padding: 6,
-    paddingBottom: 4,
+    paddingBottom: 0,
     fontSize : 20,
     fontWeight: 'bold',
     textAlign:"center",
@@ -800,16 +838,30 @@ const styles = StyleSheet.create({
     // color : "darkdarkgray"
   },
   label_text: {
-    padding:6,
+    // justifySelf : 'flex-end',
+    // flex: 1,
+    borderBottomWidth: 1,
+    borderColor: 'lightgray',
+    height: 30,
+    // minWidth:105,
+    // textAlignVertical: 'bottom',
+    // flex
+    // flexWrap : 'wrap',
+    // flexShrink : 1,
+    // width : 100,
+    padding:2,
+    paddingTop:0,
     paddingRight:10,
-    paddingBottom: 4,
-    fontSize : 16,
+    paddingLeft:10,
+    // paddingBottom: 4,
+    fontSize : 14,
     color: "gray",
-    textAlign:"center",
+    textAlign:"right",
     fontFamily : "Geneva",
   },
   inner_text: {
     flexWrap: 'wrap',
+    textAlign:"right",
     // backgroundColor: "white",
     // borderBottomLeftRadius : 10,
     // borderBottomRightRadius : 10,
@@ -819,7 +871,7 @@ const styles = StyleSheet.create({
     
     padding : 6,
     paddingBottom : 4,
-    paddingTop : 8,
+    paddingTop : 4,
     width : '100%',
     minHeight: 20,
   },
