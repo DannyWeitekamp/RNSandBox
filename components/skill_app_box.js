@@ -7,6 +7,7 @@ import { TouchableOpacity} from 'react-native-gesture-handler'
 
 const images = {
   left_arrow: require('./img/arrow-left-bold.png'),
+  crosshair: require('./img/crosshairs.png'),
 };
 
 // import * as Animatable from 'react-native-animatable';
@@ -201,6 +202,63 @@ class AnimatedButton extends Component {
   }
 }
 
+class FociButton extends RisingComponent {
+  constructor(props){
+    super(props);
+    autobind(this)
+    this._update_scale_elevation_pos()
+    this.state={...(this.state ||{})}
+  }
+  press(){
+    this.props.toggleFociModeCallback()
+  }
+  hoverStart(){
+    this.is_hover = true
+    this._update_scale_elevation_pos()
+  }
+  hoverEnd(){
+    this.is_hover = false
+    this._update_scale_elevation_pos()
+  }
+  render(){
+    let {hasFocus,using_default_staged} = this.props
+    let text_color = ( (this.props.hasFocus) && 'black') ||
+                      'rgba(0,0,0,.4)'
+    return(
+      <TouchableWithoutFeedback 
+        onPress={this.press}
+        onMouseEnter={this.hoverStart}
+        onMouseLeave={this.hoverEnd}
+      >
+      <View style = {this.props.touch_area}>
+        <Animated.View style={[styles.foci_button,
+            hasFocus && {backgroundColor: 'darkorchid'},
+            {transform : [
+              {translateX: this.state.pos_anim.x},
+              {translateY: this.state.pos_anim.y},
+              {scale: this.state.scale_anim},
+            ]},
+            gen_shadow(this.state.elevation)
+        ]}>
+          <Image 
+            style ={[{ flex:1,
+                      alignSelf : (Platform.OS == 'android' && 'center') || 'auto',
+                      resizeMode:'contain',
+                      tintColor :'black',
+                      transform:[
+                        {scale: .7}
+                      ]},
+                      (!hasFocus && {tintColor: "gray"}),
+                    ]}
+            source={images.crosshair} 
+          />
+        </Animated.View>
+      </View>
+      </TouchableWithoutFeedback>
+    )
+  }
+}
+
 class StageButton extends RisingComponent {
   constructor(props){
     super(props);
@@ -310,6 +368,7 @@ class CorrectnessToggler extends Component {
     super(props);
     autobind(this)
     this.state = {}
+    this.label_text = createRef()
   }
 
   topHoverStart(){this.setState({top_hover:true,hover_fresh:true})}
@@ -477,8 +536,8 @@ class SkillAppRow extends RisingComponent {
 
   render(){
     console.log('RERERERE')
-    let {correct, incorrect,hasFocus,staged,
-        stageCallback, is_demonstation} = this.props
+    let {correct, incorrect,hasFocus,staged, foci_mode, 
+        stageCallback, toggleFociModeCallback, is_demonstation} = this.props
     let bounds_color =  (is_demonstation && 'dodgerblue') ||
                         (correct && colors.c_bounds) || 
                         (incorrect && colors.i_bounds) || 
@@ -520,22 +579,37 @@ class SkillAppRow extends RisingComponent {
               {" "}
             </Text>
             <View style={{paddingLeft: 20, alignItems:'flex-end'}}>
-            <TextInput 
-              style={[styles.label_text, 
-                {height : this.state.label_height,
-                 width : 120,
-                 overflow:'hidden'}]}
-              defaultValue={this.props.skill_app.skill_label}
-              placeholder={'no label'}
-              onFocus={(e) => e.target.placeholder = ""} 
-              onBlur={(e) => e.target.placeholder = "no label"}
-              editable={true}
-              multiline={true}
-              onContentSizeChange={this.updateLabel}
-              scrollEnabled={false}
-              spellCheck={false}
-              //{/*onChange={this.updateLabel}*/}
-            />
+            {(is_demonstation &&
+              <TextInput 
+                style={[styles.label_text, 
+                  {height : this.state.label_height,
+                   width : 120,
+                   overflow:'hidden'}]}
+                defaultValue={this.props.skill_app.skill_label}
+                placeholder={'no label'}
+                onFocus={(e) => {
+                  e.target.placeholder = ""
+                  // if(is_demonstation){
+                  //   this.label_text.current.blur()
+                  // }
+                }} 
+                onBlur={(e) => e.target.placeholder = "no label"}
+                editable={is_demonstation}
+                tabIndex={is_demonstation && -1}
+                //selectTextOnFocus={is_demonstation}
+                multiline={Platform.OS == 'web'}
+                onContentSizeChange={this.updateLabel}
+                scrollEnabled={false}
+                spellCheck={false}
+                //{/*onChange={this.updateLabel}*/}
+              />) ||
+            <Text
+            style={[styles.label_text, 
+                  {height : this.state.label_height,
+                   width : 120,
+                   overflow:'hidden'}]}
+            > {this.props.skill_app.skill_label || 'no label'}</Text>
+            }
             </View>
 
             
@@ -568,6 +642,10 @@ class SkillAppRow extends RisingComponent {
           </TouchableHighlight> 
         }
         </Animated.View>
+        {is_demonstation && <FociButton 
+          hasFocus={foci_mode} 
+          toggleFociModeCallback={toggleFociModeCallback}
+        />}
     </View>)
   }
 }
@@ -596,7 +674,6 @@ class SkillAppBox extends RisingComponent{
         this.props.focusCallback(fi)
        },
        onPanResponderMove: (event, gesture) => {
-          
           position.setValue({x: gesture.dx,
                               y: gesture.dy });
        },
@@ -667,7 +744,8 @@ class SkillAppBox extends RisingComponent{
   render(){
     // console.time('box_rerender')
     
-    let {hasFocus, using_default_staged} = this.props
+    let {hasFocus, using_default_staged,
+         focus_index, foci_mode_index,} = this.props
     console.log('rerender box',this.props.skill_applications[0].input,using_default_staged)
 
     let sbp = this.state.staged_button_props
@@ -682,6 +760,7 @@ class SkillAppBox extends RisingComponent{
     let contents = []
     let any_staged = false
     for(let j=0; j < this.props.skill_applications.length; j++){
+      if(this.props.only_show_focused_index && j != focus_index) continue;
       let skill_app = this.props.skill_applications[j]
 
       
@@ -692,16 +771,16 @@ class SkillAppBox extends RisingComponent{
       let staged = skill_app.is_staged || false
       let innerHTML = skill_app.how
 
-      const focusCallback = (evt)=>{
-        this.props.focusCallback(j) //Call parent focus callback
+      const focusCallback = ()=>{
         this.prev_focus_index = j
+        this.props.focusCallback(j) //Call parent focus callback
       }
 
-      const stageCallback = (evt)=>{
+      const stageCallback = ()=>{
         this.props.stageCallback(j) //Call parent focus callback
       }
 
-      const removeCallback = (evt)=>{
+      const removeCallback = ()=>{
         this.props.removeCallback(j) //Call parent focus callback
       }
 
@@ -709,7 +788,12 @@ class SkillAppBox extends RisingComponent{
         this.props.toggleCallback(nxt,j) //Call parent focus callback
       }
 
-      let hasFocus_j = hasFocus && (this.props.focus_index === j)
+      const toggleFociModeCallback = ()=>{
+        this.props.toggleFociModeCallback(j) //Call parent focus callback
+      }
+
+      this.prev_focus_index = focus_index
+      let hasFocus_j = hasFocus && (focus_index === j)
       contents.push(<SkillAppRow correct={correct}
                                  incorrect={incorrect}
                                  is_demonstation={is_demonstation}
@@ -722,6 +806,8 @@ class SkillAppBox extends RisingComponent{
                                  toggleCallback={toggleCallback}
                                  stageCallback={stageCallback}
                                  removeCallback={removeCallback}
+                                 foci_mode={foci_mode_index==j}
+                                 toggleFociModeCallback={toggleFociModeCallback}
                                  key={j.toString()}
                     />)
       if(staged){any_staged = true}
@@ -918,6 +1004,16 @@ const styles = StyleSheet.create({
     width : '100%',
     minHeight: 20,
   },
+  foci_button: {
+    position: 'absolute',
+    bottom : 4,
+    left : 4,
+    flex: 1,
+    width :20,
+    height :20,
+    borderRadius: 20,
+    backgroundColor: 'rgba(120,120,120,.2)'
+  },
   stage_button : {
     position: 'absolute',
     flex: 1,
@@ -1069,8 +1165,33 @@ StageButton.defaultProps = {
     alignItems:"center",
     // backgroundColor: 'green',
     // opacity : .2,
-  },
+  }
+}
 
+FociButton.defaultProps = {
+  grabbed_scale : 1.500,
+  focused_scale : 1.300,
+  hover_scale : 1.100,
+  default_scale : 1.0,
+
+  grabbed_elevation : 10,
+  focused_elevation : 8,
+  hover_elevation : 4,
+  default_elevation : 2,
+
+  default_pos : {x: 0, y: 0},//{x: -18, y: 52},
+  focused_pos : {x: 0, y: -4},//{x: -18, y: 52},
+  hover_pos : {x: 0, y: -2},//{x: -18, y: 52},
+  touch_area: { 
+    bottom: 2,
+    left: 22,
+    width:28,
+    height:28,
+    position:'absolute',
+    alignItems:"center",
+    // backgroundColor: 'green',
+    // opacity : .2,
+  }
 }
 
 CorrectnessTogglerKnob.defaultProps = {

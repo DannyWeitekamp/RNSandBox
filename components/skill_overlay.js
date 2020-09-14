@@ -1,36 +1,122 @@
-import Svg, {
-  Circle,
-  Ellipse,
-  G,
-  Text as SvgText,
-  TSpan,
-  TextPath,
-  Path,
-  Polygon,
-  Polyline,
-  Line,
-  Rect,
-  Use,
-  Image,
-  Symbol,
-  Defs,
-  LinearGradient,
-  RadialGradient,
-  Stop,
-  ClipPath,
-  Pattern,
-  Mask,
-} from 'react-native-svg';
+// import Svg, {
+  // Circle,
+  // Ellipse,
+  // G,
+  // Text as SvgText,
+  // TSpan,
+  // TextPath,
+  // Path,
+  // Polygon,
+  // Polyline,
+  // Line,
+  // Rect,
+  // Use,
+  // Image,
+  // Symbol,
+  // Defs,
+  // LinearGradient,
+  // RadialGradient,
+  // Stop,
+  // ClipPath,
+  // Pattern,
+  // Mask,
+// } from 'react-native-svg';
 
 import React, { Component } from 'react'
 import PropTypes from 'prop-types'
-import { TouchableHighlight, ScrollView,View, Text, StyleSheet,
-         Animated, PanResponder,TouchableWithoutFeedback} from "react-native";
+import { TouchableHighlight, ScrollView,View, Text, StyleSheet, Image,
+         Animated, PanResponder,TouchableWithoutFeedback,TouchableOpacity} from "react-native";
 // import { TouchableOpacity} from 'react-native-gesture-handler'         
 import autobind from "class-autobind";
 import SkillAppBox from './skill_app_box.js'
 import SkillAppProposal from './skill_app_proposal.js'
 import deep_equal from 'fast-deep-equal'
+import {gen_shadow} from "./vis_utils.js"
+
+const images = {
+  check: require('./img/check.png'),
+};
+
+const prompts = {
+  select_foci : "Select any elements used to compute this value."
+}
+
+
+class Prompts extends Component{
+  constructor(props){
+    super(props);
+    autobind(this)
+  }
+  submit_button(){
+
+  }
+  render(){
+    return (
+        <View
+          pointerEvents={'box-none'}
+          style={[
+            styles.overlay,
+            {alignItems:'center', zIndex:1000},
+          ]}
+        >
+        {this.props.prompt && 
+          <View style={styles.prompt}>
+            <Text selectable={false} style={styles.prompt_text}>
+              {this.props.prompt}
+            </Text>
+          </View>
+        }
+        {this.props.submitCallback && 
+          <TouchableOpacity 
+            style={styles.submit_button}
+            onPress={this.props.submitCallback}
+          >
+            <Image
+              style={styles.submit_button_image}
+              source={images.check}
+            />
+          </TouchableOpacity>
+        }
+      </View>
+    )
+  }
+}
+
+class ElemHighlight extends Component{
+  constructor(props){
+    super(props);
+    autobind(this)
+    this.state={opacity:1.0}
+  }
+
+  render(){
+    let {hasFocus,bounds,onPress, color,backgroundColor,zIndex} = this.props
+    return (
+      
+      <TouchableOpacity 
+        onPress={onPress}
+        onMouseEnter={()=>this.setState({opacity:.6})}
+        onMouseLeave={()=>this.setState({opacity:1.0})}
+
+
+        style={[{position:"absolute", left: -6, top: -6,
+             // zIndex:zIndex,
+             opacity:this.state.opacity,
+             width:bounds.width+12,
+             height:bounds.height+12,
+             backgroundColor:backgroundColor,
+             transform: [
+                {translateX : bounds.x},
+                {translateY : bounds.y},
+             ]},
+             (hasFocus && {borderColor:color, borderWidth:8, borderRadius:10}),
+          ]}
+      />
+      
+        
+    )
+  }
+}
 
 class SkillOverlay extends Component{
   constructor(props){
@@ -43,6 +129,9 @@ class SkillOverlay extends Component{
      demonstrate_sel: null,
      demonstrate_index: null,
      staged_sel : null,//this.props.skill_applications[0].selection,
+     only_show_focused_sel: false,
+     only_show_focused_index: false,
+     // only_show_focused_sel: false,
      // staged_index : 0,
      staged_index : null,
      ...this.group_skill_apps(this.props.skill_applications,{})
@@ -119,17 +208,13 @@ class SkillOverlay extends Component{
   }
 
   render(){
-    // console.time('overlay_rerender')
-
-
-
-    
-    // let skill_applications = this.props.skill_applications
     let {bounding_boxes, where_colors} = this.props
     let skill_boxes = []
     let possibilities = []
     let highlights = []
     let connectors = []
+    let submit_callback = null
+    let prompt = null
     console.log('\n\nrender overlay\n\n')
     let {staged_sel, staged_index,
          demonstrate_sel, demonstrate_index} = this.state
@@ -146,21 +231,17 @@ class SkillOverlay extends Component{
       staged_index = 0
     }
 
-
-    
     let j=0
     for (let sel of this.state.selection_order){
+      if(this.state.only_show_focused_sel){
+        if(sel != this.state.focus_sel) continue;
+      }
       let sg = this.state.selection_groups[sel]
       let bounds = bounding_boxes[sel]
 
-      // let staged_index
-      // if(this.state.staged_sel==sel && this.state.staged_index != null){
-      //   staged_index = this.state.staged_index
-      // }
-
       let hasFocus = false
       let skill_app_index;
-      if(sel === this.state.focus_sel){
+      if(sel === this.state.focus_sel && this.state.foci_mode_sel == null){
         skill_app_index = this.state.focus_index
         console.log("FOCUS_INDEX", this.state.focus_index)
         let skill_app = sg[skill_app_index]
@@ -193,7 +274,6 @@ class SkillOverlay extends Component{
       let is_demonstation = skill_app.stu_resp_type == "HINT_REQUEST"
 
       let focusCallback = (index)=>{
-
        console.log("Set FOCUS", sel,index)
        this.state.selection_order.splice(
           this.state.selection_order.indexOf(sel),1)
@@ -211,6 +291,43 @@ class SkillOverlay extends Component{
         }
       }
 
+      
+
+      let toggleCallback = (nxt,index)=>{
+        console.log("CALLBACK",sel,index,nxt)
+        let _sgs = this.state.selection_groups
+        // let i = this.state.selection_order[j]
+        _sgs[sel][index] = {..._sgs[sel][index],reward:nxt.correct ? 1 : -1}
+        this.setState({selection_groups:_sgs})
+      }
+
+      let toggleFociModeCallback = (index,force_false) =>{
+        if(!force_false)focusCallback(index)
+        if(force_false || 
+          (this.state.foci_mode_sel == sel &&
+           this.state.foci_mode_index == index)){
+          this.setState({foci_mode_sel : null,
+                         foci_mode_index: null,
+                         only_show_focused_sel :false,
+                         only_show_focused_index :false
+          })
+        }else{
+          this.setState({foci_mode_sel : sel,
+                         foci_mode_index: index,
+                         only_show_focused_sel : true,
+                         only_show_focused_index :true
+          })
+        }
+      }
+
+      if(this.state.foci_mode_sel != null){
+        prompt = prompts.select_foci 
+        submit_callback = ()=>{
+          console.log("Click Away")
+          toggleFociModeCallback(null,true)
+        }
+      }
+
       let demonstrateCallback = (action,input)=>{
         let _sgs = this.state.selection_groups
         _sgs[sel].push({
@@ -219,16 +336,10 @@ class SkillOverlay extends Component{
                 input:input,
                 stu_resp_type : "HINT_REQUEST",
                 reward:1})
-        focusCallback(_sgs[sel].length-1)
+        //focusCallback(_sgs[sel].length-1)
+        toggleFociModeCallback(_sgs[sel].length-1)
         this.setState({selection_groups : _sgs})
-      }
 
-      let toggleCallback = (nxt,index)=>{
-        console.log("CALLBACK",sel,index,nxt)
-        let _sgs = this.state.selection_groups
-        // let i = this.state.selection_order[j]
-        _sgs[sel][index] = {..._sgs[sel][index],reward:nxt.correct ? 1 : -1}
-        this.setState({selection_groups:_sgs})
       }
 
       let removeCallback = (index)=>{
@@ -244,7 +355,10 @@ class SkillOverlay extends Component{
         this.setState({selection_groups : _sgs,
                        focus_sel: fs,
                        focus_index: fi})
+        toggleFociModeCallback(null,true)
       }
+
+      
 
       possibilities.push(
         <SkillAppProposal
@@ -278,19 +392,64 @@ class SkillOverlay extends Component{
           toggleCallback={toggleCallback}
           stageCallback={stageCallback}
           removeCallback={removeCallback}
+          only_show_focused_index={this.state.only_show_focused_index}
+          foci_mode_index={this.state.foci_mode_index}
+          toggleFociModeCallback={toggleFociModeCallback}
         />
       )
       j++
     }
 
+    let foci_boxes = []
+    if(this.state.foci_mode_index != null){
+      let [fs,fi] = [this.state.foci_mode_sel,this.state.foci_mode_index]
+      let skill_app = this.state.selection_groups[fs][fi]
+      let foci = skill_app.foci_of_attention || []
+      let z = 10;
 
+
+      for(let bn in bounding_boxes){
+        let fociCallback=()=>{
+          
+          let _sgs = this.state.selection_groups
+          let skill_app = _sgs[fs][fi]
+          let foci = skill_app.foci_of_attention || []
+          let index = foci.indexOf(bn)
+          console.log('fociCallback',index,bn)
+          if(index == -1){
+            foci.push(bn)
+          }else{
+            foci.splice(index,1)
+          }
+          _sgs[fs][fi] = {...skill_app,foci_of_attention:foci}
+          this.setState({selection_groups:_sgs})
+        }
+        foci_boxes.push(<ElemHighlight 
+                          bounds={bounding_boxes[bn]}
+                          backgroundColor={'rgba(153, 50, 204,.1)'}
+                          onPress={fociCallback}
+                          color = {'darkorchid'}
+                          hasFocus={foci.includes(bn)}
+                          key={'foa'+bn.toString()}
+                        />)
+        z++
+      }
+    }
+
+    console.log("submit_callback",submit_callback)
     const out = (
-      <View style={{height:"100%", width:"100%" }}>
+      <View style={styles.overlay}>
+        {foci_boxes}
         {highlights}
         {possibilities}
         {skill_boxes}
-        
-      </View>)
+        <Prompts 
+          prompt={prompt}
+          submitCallback={submit_callback}
+        />
+      </View>
+      )
+
     // console.timeEnd('overlay_rerender')
     return out
   }
@@ -299,14 +458,44 @@ class SkillOverlay extends Component{
 const styles = StyleSheet.create({
   overlay: {
     position: 'absolute',
-    // top: 0,
-    // right: 0,
-    // bottom: 0,
-    // left: 0,
-    // flex: "100%",
-    // justifyContent: "center",
-    // alignItems: "center"
+    width:"100%",
+    height:"100%",
   },
+  prompt: {
+    position: "absolute",
+    borderRadius:50,
+    paddingRight: 20,
+    paddingLeft: 20,
+    paddingTop: 10,
+    paddingBottom: 10,
+    top: 20,
+    backgroundColor:'rgba(64, 54, 74,.7)',
+    alignItems:'center',
+    justifyContent:'center',
+    ...gen_shadow(10)
+  },
+  prompt_text: {
+    color: 'white',
+    fontSize : 20,
+    fontFamily : "Geneva",
+  },
+  submit_button :{
+    color: 'white',
+    position: "absolute",
+    width:80,
+    height:80,
+    borderRadius:50,
+    bottom: 20,
+    backgroundColor:'rgba(64, 54, 74,.7)',
+    alignItems:'center',
+    justifyContent:'center',
+    ...gen_shadow(10)
+  },
+  submit_button_image :{
+    width:"90%",
+    height:"90%",
+    tintColor:'white'
+  }
 })
 
 SkillOverlay.defaultProps = {

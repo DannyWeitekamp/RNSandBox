@@ -81,6 +81,14 @@ class SkillAppProposal extends Component {
       // this.updateAndNotify();
     }
   }
+  submit_demonstrate(){
+    if(this.state.demonstrate_text){
+      this.props.demonstrateCallback("UpdateTextField", this.state.demonstrate_text)
+    }
+    this.setState({demonstrate_text:null})
+    this.text_input.current.blur()
+    this.text_input.current.clear()
+  }
   render(){
     let {skill_app, bounds, hasFocus, staged,
          correct, incorrect, is_demonstation, color} = this.props
@@ -119,23 +127,10 @@ class SkillAppProposal extends Component {
                         source={images.tap} />
                       </View>
       }else{
-          // console.log("COOOOOLOR", color,correct,incorrect)
-        // if(this.props.demonstrating){
-          innerContent = (<Text
-                            styles={{
-                              flex:1,
-                              justifyContent:'center',
-                              textAlign:"center",
-                              width:bounds.width,
-                              height:bounds.height,
-                              // paddingBottom: 4,
-                              // paddingBottom: 20,
-                            }}
-                          >
+          innerContent = (
                         <TextInput style = {{
                             textAlign:"center",
                             alignSelf: "center",
-                            // paddingBottom: 4,
                             color:'dodgerblue',
                             fontSize : fontSize*.9,
                             width:bounds.width,
@@ -144,28 +139,31 @@ class SkillAppProposal extends Component {
                         }}
                           ref={this.text_input}
                           placeholderTextColor={color}
-                          placeholder={text}
-                          onFocus={(e) => e.target.placeholder = ""} 
-                          onBlur={(e) => e.target.placeholder = text}
-                          multiline={true}
+                          value={this.state.demonstrate_text||""}
+                          placeholder={(this.state.demonstrate_text == null && text) || null}
+                          onFocus={(e) => {
+                            this.setState({demonstrate_text: ""})
+                          }} 
+                          onBlur={(e) => {
+                            e.target.placeholder = this.state.demonstrate_text
+                            this.submit_demonstrate()
+                          }}
+                          multiline={Platform.OS == 'web'}
                           scrollEnabled={false}
                           editable={true}
                           onChangeText={(t)=>{
                             console.log('change')
                             this.setState({demonstrate_text:t})}
                           }
-                          onEndEditing={()=>alert("END")}
                           onKeyPress={(evt)=>{
                             if(evt.charCode==13 && !evt.shiftKey){
-                              console.log("ENTER PRESSED",this.state.demonstrate_text,evt.currentTarget)  
-                              this.props.demonstrateCallback("UpdateTextField", this.state.demonstrate_text)
-                              this.setState({demonstrate_text:null})
+                              console.log("ENTER PRESSED",this.state.demonstrate_text)  
                               this.text_input.current.blur()
-                              this.text_input.current.clear()
+                              // this.submit_demonstrate()
                             }
                           }}
                         />
-                        </Text>
+                        
                         )
         // }else{
         //   innerContent = <Text style = {{
